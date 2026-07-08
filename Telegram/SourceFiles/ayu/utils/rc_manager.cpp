@@ -12,7 +12,7 @@
 
 namespace {
 
-constexpr auto kPrimaryUrl = "https://update.ayugram.one/rc/current/desktop2";
+constexpr auto kPrimaryUrl = "";
 constexpr auto kExteraUrl = "https://api.exteragram.app/api/v1/profiles/compact";
 constexpr auto kFetchTimeout = 15 * 1000;
 
