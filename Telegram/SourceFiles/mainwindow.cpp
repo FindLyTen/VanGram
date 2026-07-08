@@ -730,6 +730,10 @@ void MainWindow::updateControlsGeometry() {
 	if (_setupEmailLock) _setupEmailLock->setGeometry(body);
 	auto mainLeft = 0;
 	auto mainWidth = body.width();
+	if (const auto accounts = controller().accountsWidth()) {
+		mainLeft += accounts;
+		mainWidth -= accounts;
+	}
 	if (const auto session = sessionController()) {
 		if (const auto skip = session->filtersWidth()) {
 			mainLeft += skip;

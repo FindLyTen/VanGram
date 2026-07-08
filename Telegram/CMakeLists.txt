@@ -2003,6 +2003,8 @@ PRIVATE
     window/window_chat_switch_process.h
     window/window_connecting_widget.cpp
     window/window_connecting_widget.h
+    window/window_accounts_menu.cpp
+    window/window_accounts_menu.h
     window/window_controller.cpp
     window/window_controller.h
     window/window_filters_menu.cpp
