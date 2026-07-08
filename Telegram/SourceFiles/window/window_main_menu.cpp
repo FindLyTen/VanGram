@@ -391,8 +391,8 @@ MainMenu::MainMenu(
 	parentResized();
 
 	_telegram->setMarkedText(tr::link(
-		u"AyuGram Desktop"_q,
-		u"https://ayugram.one"_q));
+		u"VanGram Desktop"_q,
+		u"https://github.com/FindLyTen/VanGram"_q));
 	_telegram->setLinksTrusted();
 	_version->setMarkedText(
 		tr::link(
