@@ -38,6 +38,8 @@ struct HighlightArgs;
 
 namespace Window {
 
+class AccountsMenu;
+
 class Controller final : public base::has_weak_ptr {
 public:
 	Controller();
@@ -66,6 +68,10 @@ public:
 	[[nodiscard]] bool locked() const;
 
 	[[nodiscard]] Adaptive &adaptive() const;
+
+	// VanGram: persistent account-switcher sidebar width (0 when hidden).
+	[[nodiscard]] int accountsWidth() const;
+	[[nodiscard]] rpl::producer<> accountsMenuChanged() const;
 
 	void firstShow();
 	void finishFirstShow();
@@ -171,6 +177,9 @@ private:
 		MsgId singlePeerShowAtMsgId);
 	void setupSideBar();
 	void sideBarChanged();
+
+	std::unique_ptr<AccountsMenu> _accountsMenu;
+	rpl::event_stream<> _accountsMenuChanged;
 
 	void checkThemeEditor();
 	void checkLockByTerms();

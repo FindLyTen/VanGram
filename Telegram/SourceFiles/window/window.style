@@ -281,6 +281,20 @@ windowFiltersMainMenuUnreadMuted: icon {
 	{ "dialogs/dialogs_menu_unread", sideBarIconFg },
 	{ "dialogs/dialogs_menu_unread_dot", sideBarBadgeBgMuted },
 };
+
+// VanGram: account-switcher sidebar (left of FiltersMenu).
+windowAccountsWidth: 68px;
+windowAccountsButton: SideBarButton(windowFiltersButton) {
+	textTop: 46px;
+	textSkip: 4px;
+	minHeight: 68px;
+	minTextWidth: 48px;
+	iconPosition: point(-1px, 8px);
+}
+windowAccountsUserpicSize: 44px;
+windowAccountsUserpicSkip: 12px;
+windowAccountsActiveRing: 2px;
+windowAccountsActiveSkip: 3px;
 windowFilterSmallItem: PeerListItem(defaultPeerListItem) {
 	height: 44px;
 	photoPosition: point(13px, 5px);

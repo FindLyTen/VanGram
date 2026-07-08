@@ -2496,7 +2496,9 @@ int SessionController::minimalThreeColumnWidth() const {
 auto SessionController::computeColumnLayout() const -> ColumnLayout {
 	auto layout = Adaptive::WindowLayout::OneColumn;
 
-	auto bodyWidth = widget()->bodyWidget()->width() - filtersWidth();
+	auto bodyWidth = widget()->bodyWidget()->width()
+		- filtersWidth()
+		- window().accountsWidth();
 	auto dialogsWidth = 0, chatWidth = 0, thirdWidth = 0;
 
 	auto useOneColumnLayout = [&] {

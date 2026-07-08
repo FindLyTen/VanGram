@@ -26,8 +26,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/emoji_config.h"
 #include "chat_helpers/emoji_sets_manager.h"
 #include "window/window_session_controller.h"
+#include "window/window_accounts_menu.h"
 #include "window/themes/window_theme_editor.h"
 #include "ui/boxes/confirm_box.h"
+#include "styles/style_window.h"
 #include "data/components/promo_suggestions.h"
 #include "data/data_thread.h"
 #include "settings/settings_common.h"
@@ -237,6 +239,16 @@ void Controller::setupSideBar() {
 	if (!isPrimary()) {
 		return;
 	}
+
+	// VanGram: create the persistent account-switcher sidebar once.
+	// It survives account switches (owned by Controller, not SessionController).
+	if (!_accountsMenu) {
+		_accountsMenu = std::make_unique<AccountsMenu>(
+			_widget.bodyWidget(),
+			this,
+			[=] { _accountsMenuChanged.fire({}); sideBarChanged(); });
+	}
+
 	_sessionController->filtersMenuChanged(
 	) | rpl::on_next([=] {
 		sideBarChanged();
@@ -249,6 +261,16 @@ void Controller::setupSideBar() {
 	} else {
 		sideBarChanged();
 	}
+}
+
+int Controller::accountsWidth() const {
+	return (_accountsMenu && _accountsMenu->shown())
+		? st::windowAccountsWidth
+		: 0;
+}
+
+rpl::producer<> Controller::accountsMenuChanged() const {
+	return _accountsMenuChanged.events();
 }
 
 void Controller::checkLockByTerms() {
