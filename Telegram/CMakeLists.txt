@@ -117,6 +117,8 @@ set(ayugram_files
         ayu/ayu_lang.h
         ayu/ayu_infra.cpp
         ayu/ayu_infra.h
+        ayu/ayu_updater.cpp
+        ayu/ayu_updater.h
         ayu/utils/ayu_mapper.cpp
         ayu/utils/ayu_mapper.h
         ayu/utils/qt_key_modifiers_extended.h

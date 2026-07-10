@@ -9,6 +9,7 @@
 #include "settings/sections/settings_main.h"
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
+#include "ayu/ayu_updater.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
@@ -127,6 +128,24 @@ void BuildCategories(SectionBuilder &builder) {
 	});
 }
 
+void BuildUpdateButton(SectionBuilder &builder) {
+	builder.addSkip();
+	builder.addButton({
+		.id = u"vg/check-updates"_q,
+		.title = rpl::single(QString("Check for Updates")),
+		.icon = { &st::menuIconRestart },
+		.onClick = [] {
+			auto &u = Ayu::Updater::Instance();
+			if (u.isReady()) {
+				u.applyAndRestart();
+			} else {
+				u.check();
+			}
+		},
+	});
+	builder.addSkip();
+}
+
 const auto kMeta = BuildHelper({
 	.id = AyuMain::Id(),
 	.parentId = MainId(),
@@ -136,6 +155,7 @@ const auto kMeta = BuildHelper({
 	BuildLogo(builder);
 	builder.addSkip();
 	BuildVersionInfo(builder);
+	BuildUpdateButton(builder);
 	BuildCategories(builder);
 });
 
