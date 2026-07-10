@@ -70,7 +70,7 @@ void BuildVersionInfo(SectionBuilder &builder) {
 			.widget = object_ptr<Ui::FlatLabel>(
 				ctx.container,
 				rpl::single(
-					QString("AyuGram Desktop v")
+					QString("VanGram v")
 					+ QString::fromLatin1(AppVersionStr)),
 				st::boxTitle),
 			.align = style::al_top,
@@ -101,7 +101,7 @@ void BuildCategories(SectionBuilder &builder) {
 	builder.addSubsectionTitle(tr::ayu_CategoriesHeader());
 
 	builder.addSectionButton({
-		.title = rpl::single(QString("AyuGram")),
+		.title = rpl::single(QString("VanGram")),
 		.targetSection = AyuGhost::Id(),
 		.icon = { &st::menuIconGroupReactions },
 	});
@@ -125,66 +125,6 @@ void BuildCategories(SectionBuilder &builder) {
 		.targetSection = AyuChats::Id(),
 		.icon = { &st::menuIconChatBubble },
 	});
-	builder.addSectionButton({
-		.title = tr::ayu_CategoryOther(),
-		.targetSection = AyuOther::Id(),
-		.icon = { &st::menuIconFave },
-	});
-}
-
-void BuildLinks(SectionBuilder &builder) {
-	builder.addSkip();
-	builder.addDivider();
-	builder.addSkip();
-
-	builder.addSubsectionTitle(tr::ayu_LinksHeader());
-
-	const auto controller = builder.controller();
-
-	builder.addButton({
-		.id = u"ayu/channel"_q,
-		.title = tr::ayu_LinksChannel(),
-		.icon = { &st::menuIconChannel },
-		.label = rpl::single(QString("@ayugram")),
-		.onClick = [=] {
-			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugram"),
-			});
-		},
-	});
-	builder.addButton({
-		.id = u"ayu/chat"_q,
-		.title = tr::ayu_LinksChats(),
-		.icon = { &st::menuIconChats },
-		.label = rpl::single(QString("@ayugramchat")),
-		.onClick = [=] {
-			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugramchat"),
-			});
-		},
-	});
-	builder.addButton({
-		.id = u"ayu/crowdin"_q,
-		.title = tr::ayu_LinksTranslate(),
-		.icon = { &st::menuIconTranslate },
-		.label = rpl::single(QString("Crowdin")),
-		.onClick = [=] {
-			QDesktopServices::openUrl(
-				QString("https://translate.ayugram.one"));
-		},
-	});
-	builder.addButton({
-		.id = u"ayu/website"_q,
-		.title = tr::ayu_LinksDocumentation(),
-		.icon = { &st::menuIconIpAddress },
-		.label = rpl::single(QString("docs.ayugram.one")),
-		.onClick = [=] {
-			QDesktopServices::openUrl(
-				QString("https://docs.ayugram.one"));
-		},
-	});
-
-	builder.addSkip();
 }
 
 const auto kMeta = BuildHelper({
@@ -197,7 +137,6 @@ const auto kMeta = BuildHelper({
 	builder.addSkip();
 	BuildVersionInfo(builder);
 	BuildCategories(builder);
-	BuildLinks(builder);
 });
 
 } // namespace

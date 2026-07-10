@@ -283,7 +283,9 @@ windowFiltersMainMenuUnreadMuted: icon {
 };
 
 // VanGram: account-switcher sidebar (left of FiltersMenu).
-windowAccountsWidth: 68px;
+// Wide enough to show account rows exactly like the main-menu dropdown
+// (userpic + name + unread badge), reusing st::mainMenuAddAccountButton.
+windowAccountsWidth: 240px;
 windowAccountsButton: SideBarButton(windowFiltersButton) {
 	textTop: 46px;
 	textSkip: 4px;

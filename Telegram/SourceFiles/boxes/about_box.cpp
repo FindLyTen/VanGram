@@ -87,13 +87,10 @@ void AboutBox(not_null<Ui::GenericBox*> box, Window::SessionController* controll
 
 	box->addButton(tr::lng_close(), [=] { box->closeBox(); });
 	box->addLeftButton(
-		rpl::single(QString("@AyuGramReleases")),
-		[box, controller]
-		{
-			box->closeBox();
-			controller->showPeerByLink(Window::PeerByLinkInfo{
-				.usernameOrId = QString("ayugramreleases"),
-			});
+		rpl::single(QString("GitHub")),
+		[=] {
+			File::OpenUrl(
+				u"https://github.com/FindLyTen/VanGram/releases"_q);
 		});
 
 	box->setWidth(st::aboutWidth);

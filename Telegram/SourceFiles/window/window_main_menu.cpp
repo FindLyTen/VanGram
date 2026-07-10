@@ -636,32 +636,15 @@ void MainMenu::toggleAccounts() {
 }
 
 void MainMenu::setupAccounts() {
-	const auto inner = _accounts->entity();
-
-	inner->add(object_ptr<Ui::FixedHeightWidget>(inner, st::mainMenuSkip));
-	auto events = Settings::SetupAccounts(inner, _controller);
-	inner->add(object_ptr<Ui::FixedHeightWidget>(inner, st::mainMenuSkip));
-
-	std::move(
-		events.closeRequests
-	) | rpl::on_next([=] {
-		closeLayer();
-	}, inner->lifetime());
-
-	_accounts->toggleOn(Core::App().settings().mainMenuAccountsShownValue());
-	_accounts->finishAnimating();
-
-	_shadow->setDuration(0)->toggleOn(_accounts->shownValue());
+	// VanGram: the account list now lives in the persistent left sidebar
+	// (Window::AccountsMenu), so it is hidden here.
+	_accounts->toggle(false, anim::type::instant);
+	_shadow->toggle(false, anim::type::instant);
 }
 
 void MainMenu::setupAccountsToggle() {
-	_toggleAccounts->show();
-	_toggleAccounts->setAcceptBoth();
-	_toggleAccounts->addClickHandler([=](Qt::MouseButton button) {
-		if (button == Qt::LeftButton) {
-			toggleAccounts();
-		}
-	});
+	// VanGram: account list moved to the persistent sidebar; hide the toggle.
+	_toggleAccounts->hide();
 }
 
 void MainMenu::setupSetEmojiStatus() {

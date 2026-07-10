@@ -1334,7 +1334,7 @@ void CheckPollVoteNotificationSchedule(
 [[nodiscard]] TextWithEntities UnsupportedMessageText() {
 	const auto siteLink = u"https://github.com/FindLyTen/VanGram/releases"_q;
 	auto result = TextWithEntities{
-		tr::lng_message_unsupported(tr::now, lt_link, siteLink).replace("Telegram", "AyuGram")
+		tr::lng_message_unsupported(tr::now, lt_link, siteLink).replace("Telegram", "VanGram")
 	};
 	TextUtilities::ParseEntities(result, Ui::ItemTextNoMonoOptions().flags);
 	result.entities.push_front(

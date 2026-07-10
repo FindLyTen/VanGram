@@ -16,12 +16,15 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_changes.h"
 #include "data/data_user.h"
 #include "data/data_peer_values.h"
+#include "ui/widgets/buttons.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/userpic_view.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
+#include "settings/sections/settings_information.h"
+#include "ayu/ui/ayu_userpic.h"
 #include "styles/style_window.h"
-#include "styles/style_widgets.h"
+#include "styles/style_settings.h"
 
 namespace Window {
 
@@ -62,14 +65,11 @@ void AccountsMenu::setup() {
 		refresh();
 	}, _outer.lifetime());
 
+	// Rebuild on account switch so the active ring is repainted correctly.
 	domain.activeChanges(
 	) | rpl::on_next([=](not_null<Main::Account*>) {
-		refreshActive();
-	}, _outer.lifetime());
-
-	domain.unreadBadgeChanges(
-	) | rpl::on_next([=] {
-		refreshBadges();
+		_buttons.clear();
+		refresh();
 	}, _outer.lifetime());
 }
 
@@ -108,7 +108,9 @@ void AccountsMenu::refresh() {
 
 	setShown(authed.size() > 1);
 
-	auto now = base::flat_map<Main::Account*, base::unique_qptr<Ui::SideBarButton>>();
+	auto now = base::flat_map<
+		Main::Account*,
+		base::unique_qptr<Ui::SettingsButton>>();
 	for (const auto account : authed) {
 		auto i = _buttons.find(account);
 		if (i != end(_buttons)) {
@@ -120,45 +122,45 @@ void AccountsMenu::refresh() {
 	_buttons = std::move(now);
 
 	_container->resizeToWidth(_outer.width());
-
-	refreshActive();
-	refreshBadges();
 }
 
-void AccountsMenu::refreshActive() {
-	const auto active = Core::App().domain().maybeLastOrSomeAuthedAccount();
-	for (const auto &[account, button] : _buttons) {
-		button->setActive(account == active);
-	}
-}
-
-void AccountsMenu::refreshBadges() {
-	for (const auto &[account, button] : _buttons) {
-		const auto session = account->maybeSession();
-		const auto data = session ? &session->data() : nullptr;
-		const auto count = data ? data->unreadBadge() : 0;
-		const auto muted = data ? data->unreadBadgeMuted() : false;
-		button->setBadge(
-			!count ? QString() : (count > 999 ? u"99+"_q : QString::number(count)),
-			muted);
-	}
-}
-
-base::unique_qptr<Ui::SideBarButton> AccountsMenu::prepareButton(
+base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		not_null<Main::Account*> account) {
 	if (!_list) {
 		_list = _container->add(object_ptr<Ui::VerticalLayout>(_container));
 	}
 	const auto session = &account->session();
 	const auto user = session->user();
+	const auto active = (account
+		== Core::App().domain().maybeLastOrSomeAuthedAccount());
 
-	auto prepared = object_ptr<Ui::SideBarButton>(
-		_list,
-		TextWithEntities{ user->name() },
-		st::windowAccountsButton);
-	auto added = _list->add(std::move(prepared));
-	auto button = base::unique_qptr<Ui::SideBarButton>(std::move(added));
+	auto text = rpl::single(user->name())
+		| rpl::then(session->changes().realtimeNameUpdates(user)
+			| rpl::map([=] { return user->name(); }));
+
+	auto button = base::unique_qptr<Ui::SettingsButton>(
+		_list->add(object_ptr<Ui::SettingsButton>(
+			_list,
+			std::move(text),
+			st::mainMenuAddAccountButton)));
 	const auto raw = button.get();
+
+	// Unread badge — reuses the exact same badge style as the main menu.
+	{
+		const auto compute = [=]() -> Settings::Badge::UnreadBadge {
+			const auto s = account->maybeSession();
+			const auto d = s ? &s->data() : nullptr;
+			return {
+				.count = d ? d->unreadBadge() : 0,
+				.muted = d ? d->unreadBadgeMuted() : false,
+			};
+		};
+		Settings::Badge::AddUnread(
+			raw,
+			rpl::single(compute())
+				| rpl::then(Core::App().domain().unreadBadgeChanges()
+					| rpl::map([=] { return compute(); })));
+	}
 
 	struct State {
 		explicit State(QWidget *parent) : userpic(parent) {
@@ -170,18 +172,35 @@ base::unique_qptr<Ui::SideBarButton> AccountsMenu::prepareButton(
 	const auto state = raw->lifetime().make_state<State>(raw);
 	state->userpic.show();
 
-	const auto size = st::windowAccountsUserpicSize;
-	const auto skip = st::windowAccountsUserpicSkip;
+	const auto userpicSkip = 2 * st::mainMenuAccountLine + st::lineWidth;
+	const auto userpicSize = st::mainMenuAccountSize + userpicSkip * 2;
 	raw->heightValue(
 	) | rpl::on_next([=](int height) {
-		const auto left = (st::windowAccountsWidth - size) / 2;
-		state->userpic.setGeometry(left, skip, size, size);
+		const auto left = st::mainMenuAddAccountButton.iconLeft
+			+ (st::settingsIconAdd.width() - userpicSize) / 2;
+		const auto top = (height - userpicSize) / 2;
+		state->userpic.setGeometry(left, top, userpicSize, userpicSize);
 	}, state->userpic.lifetime());
 
 	state->userpic.paintRequest(
 	) | rpl::on_next([=] {
 		auto p = Painter(&state->userpic);
-		user->paintUserpicLeft(p, state->view, 0, 0, size, size, true);
+		const auto size = st::mainMenuAccountSize;
+		const auto line = st::mainMenuAccountLine;
+		const auto skip = 2 * line + st::lineWidth;
+		const auto full = size + skip * 2;
+		user->paintUserpicLeft(p, state->view, skip, skip, full, size);
+		if (active) {
+			const auto shift = st::lineWidth + (line * 0.5);
+			const auto diameter = full - 2 * shift;
+			const auto rect = QRectF(shift, shift, diameter, diameter);
+			auto hq = PainterHighQualityEnabler(p);
+			auto pen = st::windowBgActive->p;
+			pen.setWidthF(line);
+			p.setPen(pen);
+			p.setBrush(Qt::NoBrush);
+			AyuUserpic::PaintShape(p, rect);
+		}
 	}, state->userpic.lifetime());
 
 	// Keep userpic in sync with photo changes.
@@ -192,9 +211,12 @@ base::unique_qptr<Ui::SideBarButton> AccountsMenu::prepareButton(
 		state->userpic.update();
 	}, state->userpic.lifetime());
 
-	raw->setClickedCallback([=] {
-		activate(account, raw->clickModifiers());
-	});
+	raw->clicks(
+	) | rpl::on_next([=](Qt::MouseButton which) {
+		if (which == Qt::LeftButton) {
+			activate(account, raw->clickModifiers());
+		}
+	}, raw->lifetime());
 
 	return button;
 }

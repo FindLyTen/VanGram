@@ -586,51 +586,11 @@ void BuildPremiumSection(SectionBuilder &builder) {
 		.keywords = { u"work"_q, u"company"_q },
 	});
 
-	if (session->premiumCanBuy()) {
-		builder.addButton({
-			.id = u"main/send-gift"_q,
-			.title = tr::lng_settings_gift_premium(),
-			.icon = { .icon = &st::menuIconGiftPremium, .newBadge = true },
-			.onClick = [=] { Ui::ChooseStarGiftRecipient(controller); },
-			.keywords = { u"present"_q, u"send"_q },
-		});
-	}
-
 	builder.addSkip();
 }
 
 void BuildHelpSection(SectionBuilder &builder) {
-	builder.addDivider();
-	builder.addSkip();
-
-	const auto controller = builder.controller();
-	builder.addButton({
-		.id = u"main/faq"_q,
-		.title = tr::lng_settings_faq(),
-		.icon = { &st::menuIconFaq },
-		.onClick = [=] { OpenFaq(controller); },
-		.keywords = { u"help"_q, u"support"_q, u"questions"_q },
-	});
-
-	builder.addButton({
-		.id = u"main/features"_q,
-		.title = tr::lng_settings_features(),
-		.icon = { &st::menuIconEmojiObjects },
-		.onClick = [] {
-			UrlClickHandler::Open(tr::lng_telegram_features_url(tr::now));
-		},
-		.keywords = { u"tips"_q, u"tutorial"_q },
-	});
-
-	builder.addButton({
-		.id = u"main/ask-question"_q,
-		.title = tr::lng_settings_ask_question(),
-		.icon = { &st::menuIconDiscussion },
-		.onClick = [=] { OpenAskQuestionConfirm(controller); },
-		.keywords = { u"contact"_q, u"feedback"_q },
-	});
-
-	builder.addSkip();
+	// VanGram: Telegram FAQ / Telegram Features / Ask a Question removed.
 }
 
 void BuildValidationSuggestions(SectionBuilder &builder) {

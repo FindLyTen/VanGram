@@ -3138,7 +3138,9 @@ int SessionController::filtersWidth() const {
 }
 
 bool SessionController::enoughSpaceForFilters() const {
-	return widget()->width() >= widget()->minimumWidth() + st::windowFiltersWidth;
+	return widget()->width() >= widget()->minimumWidth()
+		+ st::windowFiltersWidth
+		+ window().accountsWidth();
 }
 
 rpl::producer<bool> SessionController::enoughSpaceForFiltersValue() const {

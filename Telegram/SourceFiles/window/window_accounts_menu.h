@@ -7,12 +7,11 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 */
 #pragma once
 
-#include "ui/widgets/side_bar_button.h"
 #include "ui/widgets/scroll_area.h"
 
 namespace Ui {
 class VerticalLayout;
-class PopupMenu;
+class SettingsButton;
 } // namespace Ui
 
 namespace Main {
@@ -29,6 +28,10 @@ class Controller;
 // SessionController is destroyed and recreated on every account switch
 // (see Window::Controller::showAccount). This widget must survive switches
 // so it can list all accounts and keep stable state.
+//
+// Rows are rendered exactly like the main-menu (hamburger) account list:
+// a Ui::SettingsButton (st::mainMenuAddAccountButton) with a userpic +
+// active ring + an unread badge (Settings::Badge::AddUnread).
 class AccountsMenu final {
 public:
 	AccountsMenu(
@@ -45,10 +48,8 @@ public:
 private:
 	void setup();
 	void refresh();
-	void refreshBadges();
-	void refreshActive();
 	void setShown(bool shown);
-	[[nodiscard]] base::unique_qptr<Ui::SideBarButton> prepareButton(
+	[[nodiscard]] base::unique_qptr<Ui::SettingsButton> prepareButton(
 		not_null<Main::Account*> account);
 	void activate(
 		not_null<Main::Account*> account,
@@ -62,7 +63,7 @@ private:
 	not_null<Ui::VerticalLayout*> _container;
 	Ui::VerticalLayout *_list = nullptr;
 
-	base::flat_map<Main::Account*, base::unique_qptr<Ui::SideBarButton>> _buttons;
+	base::flat_map<Main::Account*, base::unique_qptr<Ui::SettingsButton>> _buttons;
 
 	bool _shown = false;
 
