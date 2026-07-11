@@ -133,7 +133,7 @@ void BuildUpdateButton(SectionBuilder &builder) {
 	builder.addButton({
 		.id = u"vg/check-updates"_q,
 		.title = rpl::single(QString("Check for Updates")),
-		.icon = { &st::menuIconRestart },
+		.icon = { &st::menuIconShowAll },
 		.onClick = [] {
 			auto &u = Ayu::Updater::Instance();
 			if (u.isReady()) {
