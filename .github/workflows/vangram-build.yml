@@ -154,7 +154,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $ErrorActionPreference = 'Stop'
-          $vh = Get-Content Telegram\SourceFiles\core\version.h -Raw
+          $vh = Get-Content (Join-Path $env:TBUILD "$env:REPO_NAME\Telegram\SourceFiles\core\version.h") -Raw
           $ver    = [int](([regex]::Match($vh, 'AppVersion\s*=\s*(\d+)')).Groups[1].Value)
           $verStr = ([regex]::Match($vh, 'AppVersionStr\s*=\s*"([^"]+)"')).Groups[1].Value
           $tag = "v$verStr"
