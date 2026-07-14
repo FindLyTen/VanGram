@@ -17,6 +17,10 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_user.h"
 #include "data/data_peer_values.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/labels.h"
+#include "ui/widgets/fields/input_field.h"
+#include "ui/layers/box_content.h"
+#include "ui/layers/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
 #include "ui/userpic_view.h"
 #include "ui/painter.h"
@@ -26,7 +30,64 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "styles/style_window.h"
 #include "styles/style_settings.h"
 
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+#include <QtCore/QMap>
+
 namespace Window {
+
+namespace {
+
+QString tagFilePath() {
+	return QCoreApplication::applicationDirPath()
+		+ QStringLiteral("/tdata/vangram_tags.json");
+}
+
+QMap<quint64, QString> &tagsMap() {
+	static QMap<quint64, QString> map;
+	static bool loaded = false;
+	if (!loaded) {
+		loaded = true;
+		QFile f(tagFilePath());
+		if (f.open(QIODevice::ReadOnly)) {
+			const auto obj = QJsonDocument::fromJson(f.readAll()).object();
+			for (auto it = obj.begin(); it != obj.end(); ++it) {
+				map[it.key().toULongLong()] = it.value().toString();
+			}
+		}
+	}
+	return map;
+}
+
+void saveTags() {
+	QJsonObject obj;
+	for (auto it = tagsMap().constBegin(); it != tagsMap().constEnd(); ++it) {
+		obj[QString::number(it.key())] = it.value();
+	}
+	QDir().mkpath(
+		QCoreApplication::applicationDirPath() + QStringLiteral("/tdata"));
+	QFile f(tagFilePath());
+	if (f.open(QIODevice::WriteOnly)) {
+		f.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+	}
+}
+
+QString tagValue(quint64 key) {
+	return tagsMap().value(key);
+}
+
+void setTagValue(quint64 key, const QString &text) {
+	if (text.isEmpty()) {
+		tagsMap().remove(key);
+	} else {
+		tagsMap()[key] = text;
+	}
+}
+
+} // namespace
 
 AccountsMenu::AccountsMenu(
 	not_null<Ui::RpWidget*> parent,
@@ -149,6 +210,7 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 	}
 	const auto session = &account->session();
 	const auto user = session->user();
+	const auto key = session->uniqueId();
 	const auto active = (account
 		== Core::App().domain().maybeLastOrSomeAuthedAccount());
 
@@ -163,22 +225,21 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 			st::mainMenuAddAccountButton)));
 	const auto raw = button.get();
 
-	// Unread badge — reuses the exact same badge style as the main menu.
-	{
-		const auto compute = [=]() -> Settings::Badge::UnreadBadge {
-			const auto s = account->maybeSession();
-			const auto d = s ? &s->data() : nullptr;
-			return {
-				.count = d ? d->unreadBadge() : 0,
-				.muted = d ? d->unreadBadgeMuted() : false,
-			};
-		};
-		Settings::Badge::AddUnread(
-			raw,
-			rpl::single(compute())
-				| rpl::then(Core::App().domain().unreadBadgeChanges()
-					| rpl::map([=] { return compute(); })));
-	}
+	// VanGram: account tag (right side). Replaces the unread badge — the
+	// tag ("what this account is for") is more useful in this sidebar.
+	const auto tagHolder = Settings::Badge::AddRight(raw, 0);
+	tagHolder->show();
+	const auto tagLabel = Ui::CreateChild<Ui::FlatLabel>(
+		tagHolder,
+		rpl::single(tagValue(key)),
+		st::defaultFlatLabel);
+	tagLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
+	tagLabel->show();
+	tagLabel->sizeValue(
+	) | rpl::on_next([=](const QSize &s) {
+		tagHolder->resize(s);
+	}, tagHolder->lifetime());
+
 
 	struct State {
 		explicit State(QWidget *parent) : userpic(parent) {
@@ -229,14 +290,41 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		state->userpic.update();
 	}, state->userpic.lifetime());
 
+	raw->setAcceptBoth(true);
 	raw->clicks(
 	) | rpl::on_next([=](Qt::MouseButton which) {
 		if (which == Qt::LeftButton) {
 			activate(account, raw->clickModifiers());
+		} else if (which == Qt::MiddleButton) {
+			activate(account, Qt::ControlModifier);
+		} else if (which == Qt::RightButton) {
+			editTagBox(key);
 		}
 	}, raw->lifetime());
 
 	return button;
+}
+
+void AccountsMenu::editTagBox(quint64 key) {
+	_controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(rpl::single(QString("Account tag")));
+		const auto field = box->addRow(
+			object_ptr<Ui::InputField>(
+				box,
+				st::defaultInputField,
+				rpl::single(QString("Short description of the account")),
+				tagValue(key)),
+			st::boxRowPadding);
+		field->setMaxLength(64);
+		box->addButton(rpl::single(QString("Save")), [=] {
+			setTagValue(key, field->getLastText().trimmed());
+			saveTags();
+			box->closeBox();
+			_buttons.clear();
+			refresh();
+		});
+		box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+	}));
 }
 
 void AccountsMenu::activate(
