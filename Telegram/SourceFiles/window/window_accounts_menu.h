@@ -65,6 +65,8 @@ private:
 
 	base::flat_map<Main::Account*, base::unique_qptr<Ui::SettingsButton>> _buttons;
 
+	rpl::lifetime _sessionsLifetime;
+
 	bool _shown = false;
 
 };

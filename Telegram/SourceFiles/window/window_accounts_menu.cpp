@@ -59,9 +59,27 @@ void AccountsMenu::setup() {
 	updateGeometry();
 
 	auto &domain = Core::App().domain();
+
+	// VanGram: drop an account's button the moment its session dies
+	// (sessionChanges(null)) — BEFORE ~Session runs — so the button's
+	// captured session/user pointers never dangle during a paint. This is
+	// what makes full / non-active account logout safe. Mirrors
+	// tray_accounts_menu.cpp.
+	const auto watchSessions = [=] {
+		_sessionsLifetime.destroy();
+		for (const auto &account : domain.orderedAccounts()) {
+			account->sessionChanges(
+			) | rpl::on_next([=](Main::Session*) {
+				_buttons.clear();
+				refresh();
+			}, _sessionsLifetime);
+		}
+	};
+
 	(rpl::single(rpl::empty)
 		| rpl::then(domain.accountsChanges())
 	) | rpl::on_next([=] {
+		watchSessions();
 		refresh();
 	}, _outer.lifetime());
 
