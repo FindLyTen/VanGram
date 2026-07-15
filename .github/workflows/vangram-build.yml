@@ -159,7 +159,7 @@ jobs:
           $verStr = ([regex]::Match($vh, 'AppVersionStr\s*=\s*"([^"]+)"')).Groups[1].Value
           $tag = "v$verStr"
           Compress-Archive -Path artifact\* -DestinationPath VanGram-windows-x64-debug.zip -Force
-          try { gh release delete $tag --yes --cleanup_tag } catch {}
+          try { gh release delete $tag --yes --cleanup-tag } catch {}
           gh release create $tag VanGram-windows-x64-debug.zip `
             --title "VanGram $verStr" `
             --notes "Automated build of VanGram $verStr (self-update source)." `

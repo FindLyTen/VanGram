@@ -128,7 +128,9 @@ void AccountsMenu::setup() {
 	// tray_accounts_menu.cpp.
 	const auto watchSessions = [=] {
 		_sessionsLifetime.destroy();
-		for (const auto &account : domain.orderedAccounts()) {
+		auto &d = Core::App().domain();
+		for (const auto &entry : d.orderedAccounts()) {
+			const auto account = entry.get();
 			account->sessionChanges(
 			) | rpl::on_next([=](Main::Session*) {
 				_buttons.clear();
@@ -323,7 +325,7 @@ void AccountsMenu::editTagBox(quint64 key) {
 			_buttons.clear();
 			refresh();
 		});
-		box->addButton(tr::lng_cancel(), [=] { box->closeBox(); });
+		box->addButton(rpl::single(QString("Cancel")), [=] { box->closeBox(); });
 	}));
 }
 
