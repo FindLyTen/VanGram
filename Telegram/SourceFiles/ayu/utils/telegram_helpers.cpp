@@ -718,7 +718,21 @@ bool isMessageSavable(const not_null<HistoryItem*> item) {
 		return false;
 	}
 
-	if (const auto possiblyBot = item->history()->peer->asUser()) {
+	const auto peer = item->history()->peer;
+
+	// VanGram: never preserve deletions in Saved Messages — they must
+	// propagate across devices, otherwise you have to delete on each one.
+	if (peer->isSelf()) {
+		return false;
+	}
+
+	// VanGram: never preserve deletions in broadcast channels — only keep
+	// them in 1:1 chats, basic groups and megagroups/supergroups.
+	if (peer->isChannel() && !peer->isMegagroup()) {
+		return false;
+	}
+
+	if (const auto possiblyBot = peer->asUser()) {
 		return !possiblyBot->isBot() || (settings.saveForBots() && possiblyBot->isBot());
 	}
 	return true;
