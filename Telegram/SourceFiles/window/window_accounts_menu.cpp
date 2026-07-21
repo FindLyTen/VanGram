@@ -202,6 +202,8 @@ void AccountsMenu::refresh() {
 	}
 	_buttons = std::move(now);
 
+	ensureAddButton();
+
 	_container->resizeToWidth(_outer.width());
 }
 
@@ -224,7 +226,7 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		_list->add(object_ptr<Ui::SettingsButton>(
 			_list,
 			std::move(text),
-			st::mainMenuAddAccountButton)));
+			active ? st::windowAccountsActiveButton : st::mainMenuAddAccountButton)));
 	const auto raw = button.get();
 
 	// VanGram: account tag (right side). Replaces the unread badge — the
@@ -235,6 +237,7 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		tagHolder,
 		rpl::single(tagValue(key)),
 		st::defaultFlatLabel);
+	tagLabel->setTextColorOverride(st::windowBgActive->c);
 	tagLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 	tagLabel->show();
 	tagLabel->sizeValue(
@@ -345,6 +348,49 @@ void AccountsMenu::activate(
 		return;
 	}
 	domain.maybeActivate(account);
+}
+
+void AccountsMenu::ensureAddButton() {
+	if (_addButton) {
+		return;
+	}
+	auto button = base::unique_qptr<Ui::SettingsButton>(
+		_container->add(object_ptr<Ui::SettingsButton>(
+			_container,
+			rpl::single(QString("Add account")),
+			st::mainMenuAddAccountButton)));
+	const auto raw = button.get();
+
+	// Green "+" icon in the userpic slot (same look as the main menu).
+	struct IconState {
+		explicit IconState(QWidget *parent) : w(parent) {
+			w.setAttribute(Qt::WA_TransparentForMouseEvents);
+		}
+		Ui::RpWidget w;
+	};
+	const auto st = raw->lifetime().make_state<IconState>(raw);
+	st->w.show();
+	const auto iconSize = st::settingsIconAdd.width();
+	raw->heightValue(
+	) | rpl::on_next([=](int height) {
+		const auto left = st::mainMenuAddAccountButton.iconLeft;
+		const auto top = (height - iconSize) / 2;
+		st->w.setGeometry(left, top, iconSize, iconSize);
+	}, st->w.lifetime());
+	st->w.paintRequest(
+	) | rpl::on_next([=] {
+		auto p = QPainter(&st->w);
+		st::settingsIconAdd.paint(p, 0, 0, st->w.width());
+	}, st->w.lifetime());
+
+	raw->clicks(
+	) | rpl::on_next([=](Qt::MouseButton which) {
+		if (which == Qt::LeftButton) {
+			Core::App().domain().addActivated(MTP::Environment{});
+		}
+	}, raw->lifetime());
+
+	_addButton = std::move(button);
 }
 
 } // namespace Window

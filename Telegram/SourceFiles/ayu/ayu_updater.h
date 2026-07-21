@@ -29,7 +29,7 @@ public:
 	[[nodiscard]] bool isReady() const { return _ready; }
 
 private:
-	Updater();
+	Updater(QObject *parent = nullptr);
 	void onManifest(QNetworkReply *reply);
 	void startDownload(const QString &url);
 	void onDownloaded();

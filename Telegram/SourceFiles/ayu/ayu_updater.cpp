@@ -35,11 +35,17 @@ void toast(const QString &text) {
 } // namespace
 
 Updater &Updater::Instance() {
-	static Updater instance;
-	return instance;
+	// Parented to qApp so it is torn down with Qt (during normal shutdown),
+	// not as a function-static after QCoreApplication is already destroyed
+	// (which caused a debug heap assertion on exit).
+	static Updater *instance = nullptr;
+	if (!instance) {
+		instance = new Updater(qApp);
+	}
+	return *instance;
 }
 
-Updater::Updater() : QObject(nullptr) {
+Updater::Updater(QObject *parent) : QObject(parent) {
 	_nam = new QNetworkAccessManager(this);
 }
 

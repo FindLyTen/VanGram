@@ -137,6 +137,11 @@ mainMenuButton: SettingsButton(defaultSettingsButton) {
 mainMenuAddAccountButton: SettingsButton(mainMenuButton) {
 	iconLeft: 23px;
 }
+// VanGram: active account row in the sidebar (subtle highlighted bg).
+windowAccountsActiveButton: SettingsButton(mainMenuAddAccountButton) {
+	textBg: windowBgOver;
+	textBgOver: windowBgOver;
+}
 
 mainMenuAccountSize: 26px;
 mainMenuAccountLine: 2px;

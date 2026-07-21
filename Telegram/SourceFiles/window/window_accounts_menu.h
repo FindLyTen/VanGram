@@ -50,6 +50,7 @@ private:
 	void refresh();
 	void setShown(bool shown);
 	void editTagBox(quint64 key);
+	void ensureAddButton();
 	[[nodiscard]] base::unique_qptr<Ui::SettingsButton> prepareButton(
 		not_null<Main::Account*> account);
 	void activate(
@@ -65,6 +66,7 @@ private:
 	Ui::VerticalLayout *_list = nullptr;
 
 	base::flat_map<Main::Account*, base::unique_qptr<Ui::SettingsButton>> _buttons;
+	base::unique_qptr<Ui::SettingsButton> _addButton;
 
 	rpl::lifetime _sessionsLifetime;
 
