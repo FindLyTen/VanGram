@@ -170,7 +170,7 @@ jobs:
             --title "VanGram $verStr" `
             --notes "Automated build of VanGram $verStr (self-update source)." `
             --latest
-          $url  = gh release view $tag --repo $repo --json assets --jq '.assets[] | select(.name=="VanGram-windows-x64-debug.zip") | .browser_download_url'
+          $url  = "https://github.com/$repo/releases/download/$tag/VanGram-windows-x64-debug.zip"
           $size = (Get-Item VanGram-windows-x64-debug.zip).Length
           @{ version = $ver; url = $url; size = $size } |
             ConvertTo-Json -Compress |
