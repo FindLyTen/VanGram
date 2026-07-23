@@ -46,8 +46,13 @@ QString tagFilePath() {
 		+ QStringLiteral("/tdata/vangram_tags.json");
 }
 
-QMap<quint64, QString> &tagsMap() {
-	static QMap<quint64, QString> map;
+struct TagInfo {
+	QString text;
+	QString color; // hex (e.g. "#2aabee"); empty = default accent
+};
+
+QMap<quint64, TagInfo> &tagsMap() {
+	static QMap<quint64, TagInfo> map;
 	static bool loaded = false;
 	if (!loaded) {
 		loaded = true;
@@ -55,7 +60,16 @@ QMap<quint64, QString> &tagsMap() {
 		if (f.open(QIODevice::ReadOnly)) {
 			const auto obj = QJsonDocument::fromJson(f.readAll()).object();
 			for (auto it = obj.begin(); it != obj.end(); ++it) {
-				map[it.key().toULongLong()] = it.value().toString();
+				const auto v = it.value();
+				if (v.isObject()) {
+					const auto o = v.toObject();
+					map[it.key().toULongLong()] = {
+						o.value(QStringLiteral("text")).toString(),
+						o.value(QStringLiteral("color")).toString(),
+					};
+				} else {
+					map[it.key().toULongLong()] = { v.toString(), QString() };
+				}
 			}
 		}
 	}
@@ -65,7 +79,10 @@ QMap<quint64, QString> &tagsMap() {
 void saveTags() {
 	QJsonObject obj;
 	for (auto it = tagsMap().constBegin(); it != tagsMap().constEnd(); ++it) {
-		obj[QString::number(it.key())] = it.value();
+		QJsonObject o;
+		o[QStringLiteral("text")] = it.value().text;
+		o[QStringLiteral("color")] = it.value().color;
+		obj[QString::number(it.key())] = o;
 	}
 	QDir().mkpath(
 		QCoreApplication::applicationDirPath() + QStringLiteral("/tdata"));
@@ -76,14 +93,18 @@ void saveTags() {
 }
 
 QString tagValue(quint64 key) {
-	return tagsMap().value(key);
+	return tagsMap().value(key).text;
 }
 
-void setTagValue(quint64 key, const QString &text) {
+QString tagColor(quint64 key) {
+	return tagsMap().value(key).color;
+}
+
+void setTagValue(quint64 key, const QString &text, const QString &color) {
 	if (text.isEmpty()) {
 		tagsMap().remove(key);
 	} else {
-		tagsMap()[key] = text;
+		tagsMap()[key] = { text, color };
 	}
 }
 
@@ -215,8 +236,7 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 	const auto session = &account->session();
 	const auto user = session->user();
 	const auto key = session->uniqueId();
-	const auto active = (account
-		== Core::App().domain().maybeLastOrSomeAuthedAccount());
+	const auto active = (account == &Core::App().domain().active());
 
 	auto text = rpl::single(user->name())
 		| rpl::then(session->changes().realtimeNameUpdates(user)
@@ -237,7 +257,11 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		tagHolder,
 		rpl::single(tagValue(key)),
 		st::defaultFlatLabel);
-	tagLabel->setTextColorOverride(st::windowBgActive->c);
+	const auto tcolor = tagColor(key);
+	tagLabel->setTextColorOverride(
+		tcolor.isEmpty() ? st::windowBgActive->c : QColor(tcolor));
+	tagLabel->setElisionMiddle(true);
+	tagLabel->setMaximumWidth(150);
 	tagLabel->setAttribute(Qt::WA_TransparentForMouseEvents);
 	tagLabel->show();
 	tagLabel->sizeValue(
@@ -320,9 +344,50 @@ void AccountsMenu::editTagBox(quint64 key) {
 				rpl::single(QString("Short description of the account")),
 				tagValue(key)),
 			st::boxRowPadding);
-		field->setMaxLength(64);
+		field->setMaxLength(40);
+
+		// Color picker: a button that cycles through preset colors.
+		const auto presets = std::make_shared<
+			std::vector<std::pair<QString, QString>>>();
+		*presets = {
+			{ QStringLiteral("Color: Default"), QString() },
+			{ QStringLiteral("Color: Blue"), QStringLiteral("#2aabee") },
+			{ QStringLiteral("Color: Red"), QStringLiteral("#e74c3c") },
+			{ QStringLiteral("Color: Orange"), QStringLiteral("#e67e22") },
+			{ QStringLiteral("Color: Green"), QStringLiteral("#2ecc71") },
+			{ QStringLiteral("Color: Purple"), QStringLiteral("#9b59b6") },
+		};
+		const auto chosen = std::make_shared<QString>(tagColor(key));
+		const auto idx = std::make_shared<int>(0);
+		for (int i = 0; i < int(presets->size()); ++i) {
+			if ((*presets)[i].second == *chosen) {
+				*idx = i;
+				break;
+			}
+		}
+		const auto colorBtn = box->addRow(
+			object_ptr<Ui::RoundButton>(
+				box,
+				rpl::single((*presets)[*idx].first),
+				st::defaultLightButton),
+			st::boxRowPadding);
+		const auto refreshBtn = [=] {
+			const auto &p = (*presets)[*idx];
+			colorBtn->setText(rpl::single(p.first));
+			colorBtn->setTextFgOverride(
+				p.second.isEmpty()
+					? st::windowBgActive->c
+					: QColor(p.second));
+		};
+		refreshBtn();
+		colorBtn->setClickedCallback([=] {
+			*idx = (*idx + 1) % int(presets->size());
+			*chosen = (*presets)[*idx].second;
+			refreshBtn();
+		});
+
 		box->addButton(rpl::single(QString("Save")), [=] {
-			setTagValue(key, field->getLastText().trimmed());
+			setTagValue(key, field->getLastText().trimmed(), *chosen);
 			saveTags();
 			box->closeBox();
 			_buttons.clear();
@@ -336,7 +401,7 @@ void AccountsMenu::activate(
 		not_null<Main::Account*> account,
 		Qt::KeyboardModifiers modifiers) {
 	auto &domain = Core::App().domain();
-	if (account == domain.maybeLastOrSomeAuthedAccount()) {
+	if (account == &domain.active()) {
 		return;
 	}
 	if (modifiers & Qt::ControlModifier) {
