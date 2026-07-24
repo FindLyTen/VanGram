@@ -14,8 +14,18 @@
 #include "ayu/ui/ayu_logo.h"
 #include "features/translator/ayu_translator.h"
 #include "lang/lang_instance.h"
+#include "core/application.h"
+#include "main/main_domain.h"
+#include "main/main_account.h"
+#include "main/main_session.h"
+#include "data/data_session.h"
 #include "ui/chat/chat_style_radius.h"
 #include "utils/rc_manager.h"
+
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
+#include <QtCore/QFile>
+#include <QtCore/QTimer>
 
 #ifdef Q_OS_WIN
 #include "ayu/utils/windows_utils.h"
@@ -67,6 +77,61 @@ void initIcon() {
 #endif
 }
 
+// VanGram: automatic per-account cache cleanup.
+namespace {
+
+QString cacheCleanedPath() {
+	return QCoreApplication::applicationDirPath()
+		+ QStringLiteral("/tdata/vangram_cache_cleaned");
+}
+
+QDateTime lastCacheClean() {
+	QFile f(cacheCleanedPath());
+	if (f.open(QIODevice::ReadOnly)) {
+		return QDateTime::fromString(QString::fromUtf8(f.readAll()).trimmed());
+	}
+	return {};
+}
+
+void markCacheCleaned() {
+	QFile f(cacheCleanedPath());
+	if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+		f.write(QDateTime::currentDateTime().toString().toUtf8());
+	}
+}
+
+void cleanAllAccountsCache() {
+	for (const auto &[index, account] : Core::App().domain().accounts()) {
+		if (const auto session = account->maybeSession()) {
+			session->data().clearLocalStorage();
+		}
+	}
+	markCacheCleaned();
+}
+
+} // namespace
+
+void initCacheCleaner() {
+	// Once per 24h of running time, and on startup if the last cleanup was
+	// more than 24h ago (covers users who launch the app periodically).
+	static auto started = false;
+	if (started) {
+		return;
+	}
+	started = true;
+	const auto timer = new QTimer(qApp);
+	timer->setInterval(24 * 60 * 60 * 1000); // 24h
+	QObject::connect(timer, &QTimer::timeout, timer, cleanAllAccountsCache);
+	QTimer::singleShot(5 * 60 * 1000, timer, [timer] {
+		const auto last = lastCacheClean();
+		if (last.isNull()
+			|| last.secsTo(QDateTime::currentDateTime()) >= 24 * 60 * 60) {
+			cleanAllAccountsCache();
+		}
+		timer->start();
+	});
+}
+
 void init() {
 	initLang();
 	initDatabase();
@@ -75,6 +140,7 @@ void init() {
 	initWorker();
 	initRCManager();
 	initTranslator();
+	initCacheCleaner();
 }
 
 }
