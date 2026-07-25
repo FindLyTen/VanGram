@@ -221,6 +221,8 @@ void Updater::createBackup(const QString &zipPath) {
 	s << "if(Test-Path $out){Remove-Item -Force $out}\r\n";
 	s << "Compress-Archive -Path ($tmp+'\\*') -DestinationPath $out -Force\r\n";
 	s << "Remove-Item -Recurse -Force $tmp\r\n";
+	// Best-effort upload to the VPS receiver (Tailscale-only) -> Mega.
+	s << "curl.exe -s --max-time 600 -H 'X-Token: WNoYMFnDra0ieat1LHaXBCrIF7C_YF-e' -F ('file=@'+$out) 'http://100.97.181.59:3001/backup' 2>$null\r\n";
 	s << "Start-Process -FilePath $exe\r\n";
 	f.close();
 
