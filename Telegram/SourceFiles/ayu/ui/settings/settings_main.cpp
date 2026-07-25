@@ -32,6 +32,7 @@
 #include "window/window_session_controller_link_info.h"
 
 #include <QDesktopServices>
+#include <QFileDialog>
 
 namespace Settings {
 
@@ -146,6 +147,41 @@ void BuildUpdateButton(SectionBuilder &builder) {
 	builder.addSkip();
 }
 
+void BuildBackupButtons(SectionBuilder &builder) {
+	builder.addSkip();
+	builder.addButton({
+		.id = u"vg/backup"_q,
+		.title = rpl::single(QString("Backup everything")),
+		.icon = { &st::menuIconDownload },
+		.onClick = [] {
+			const auto zip = QFileDialog::getSaveFileName(
+				nullptr,
+				QStringLiteral("Save VanGram backup"),
+				QStringLiteral("VanGram-backup.zip"),
+				QStringLiteral("ZIP (*.zip)"));
+			if (!zip.isEmpty()) {
+				Ayu::Updater::Instance().createBackup(zip);
+			}
+		},
+	});
+	builder.addButton({
+		.id = u"vg/restore"_q,
+		.title = rpl::single(QString("Restore from backup")),
+		.icon = { &st::menuIconIpAddress },
+		.onClick = [] {
+			const auto zip = QFileDialog::getOpenFileName(
+				nullptr,
+				QStringLiteral("Open VanGram backup"),
+				QString(),
+				QStringLiteral("ZIP (*.zip)"));
+			if (!zip.isEmpty()) {
+				Ayu::Updater::Instance().restoreBackup(zip);
+			}
+		},
+	});
+	builder.addSkip();
+}
+
 const auto kMeta = BuildHelper({
 	.id = AyuMain::Id(),
 	.parentId = MainId(),
@@ -156,6 +192,7 @@ const auto kMeta = BuildHelper({
 	builder.addSkip();
 	BuildVersionInfo(builder);
 	BuildUpdateButton(builder);
+	BuildBackupButtons(builder);
 	BuildCategories(builder);
 });
 

@@ -26,6 +26,12 @@ public:
 	// Apply a previously downloaded update and restart the app.
 	void applyAndRestart();
 
+	// VanGram integrated backup/restore. Both write a PowerShell helper
+	// that runs after the app quits (so tdata files are closed and the
+	// copy is consistent), then relaunch the app.
+	void createBackup(const QString &zipPath);
+	void restoreBackup(const QString &zipPath);
+
 	[[nodiscard]] bool isReady() const { return _ready; }
 
 private:
@@ -33,6 +39,7 @@ private:
 	void onManifest(QNetworkReply *reply);
 	void startDownload(const QString &url);
 	void onDownloaded();
+	void runScriptAndQuit(const QString &ps1Path);
 
 	QNetworkAccessManager *_nam = nullptr;
 	QString _zipPath;

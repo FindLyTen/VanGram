@@ -167,6 +167,10 @@ void Updater::applyAndRestart() {
 	s << "Start-Process -FilePath $exe\r\n";
 	f.close();
 
+	runScriptAndQuit(ps1);
+}
+
+void Updater::runScriptAndQuit(const QString &ps1Path) {
 	QStringList args;
 	args << QStringLiteral("-ExecutionPolicy")
 		 << QStringLiteral("Bypass")
@@ -174,12 +178,91 @@ void Updater::applyAndRestart() {
 		 << QStringLiteral("-WindowStyle")
 		 << QStringLiteral("Hidden")
 		 << QStringLiteral("-File")
-		 << ps1;
+		 << ps1Path;
 	if (!QProcess::startDetached(QStringLiteral("powershell"), args)) {
-		toast(QStringLiteral("Update failed: cannot start apply script."));
+		toast(QStringLiteral("Failed: cannot start helper script."));
 		return;
 	}
 	Core::Quit();
+}
+
+void Updater::createBackup(const QString &zipPath) {
+	if (zipPath.isEmpty()) {
+		return;
+	}
+	const auto exePath = QGuiApplication::applicationFilePath();
+	const auto appDir = QFileInfo(exePath).absolutePath();
+	const auto pid = QString::number(QGuiApplication::applicationPid());
+	const auto ps1 = updateDir() + QStringLiteral("/backup.ps1");
+
+	QDir().mkpath(updateDir());
+	QFile f(ps1);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+		toast(QStringLiteral("Backup failed: cannot write script."));
+		return;
+	}
+	auto esc = [](QString s) {
+		return s.replace(QLatin1Char('\''), QStringLiteral("''"));
+	};
+	QTextStream s(&f);
+	s << "$ErrorActionPreference='Stop'\r\n";
+	s << "$p=" << pid << "\r\n";
+	s << "$src='" << esc(appDir) << "'\r\n";
+	s << "$out='" << esc(zipPath) << "'\r\n";
+	s << "$exe='" << esc(exePath) << "'\r\n";
+	s << "$tmp=$env:TEMP+'\\vangram_backup_src'\r\n";
+	s << "while(Get-Process -Id $p -ErrorAction SilentlyContinue){Start-Sleep -Milliseconds 500}\r\n";
+	s << "if(Test-Path $tmp){Remove-Item -Recurse -Force $tmp}\r\n";
+	s << "Copy-Item -Recurse -Force $src $tmp\r\n";
+	s << "if(Test-Path ($tmp+'\\tdata\\cache')){Remove-Item -Recurse -Force ($tmp+'\\tdata\\cache')}\r\n";
+	s << "if(Test-Path ($tmp+'\\tdata\\temp')){Remove-Item -Recurse -Force ($tmp+'\\tdata\\temp')}\r\n";
+	s << "if(Test-Path ($tmp+'\\tdata\\user_data\\cache')){Remove-Item -Recurse -Force ($tmp+'\\tdata\\user_data\\cache')}\r\n";
+	s << "Get-ChildItem -Recurse -Force -Include '*.log' -Path $tmp | Remove-Item -Force\r\n";
+	s << "if(Test-Path $out){Remove-Item -Force $out}\r\n";
+	s << "Compress-Archive -Path ($tmp+'\\*') -DestinationPath $out -Force\r\n";
+	s << "Remove-Item -Recurse -Force $tmp\r\n";
+	s << "Start-Process -FilePath $exe\r\n";
+	f.close();
+
+	toast(QStringLiteral("Creating backup, the app will restart..."));
+	runScriptAndQuit(ps1);
+}
+
+void Updater::restoreBackup(const QString &zipPath) {
+	if (zipPath.isEmpty()) {
+		return;
+	}
+	const auto exePath = QGuiApplication::applicationFilePath();
+	const auto appDir = QFileInfo(exePath).absolutePath();
+	const auto pid = QString::number(QGuiApplication::applicationPid());
+	const auto ps1 = updateDir() + QStringLiteral("/restore.ps1");
+
+	QDir().mkpath(updateDir());
+	QFile f(ps1);
+	if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+		toast(QStringLiteral("Restore failed: cannot write script."));
+		return;
+	}
+	auto esc = [](QString s) {
+		return s.replace(QLatin1Char('\''), QStringLiteral("''"));
+	};
+	QTextStream s(&f);
+	s << "$ErrorActionPreference='Stop'\r\n";
+	s << "$p=" << pid << "\r\n";
+	s << "$zip='" << esc(zipPath) << "'\r\n";
+	s << "$dst='" << esc(appDir) << "'\r\n";
+	s << "$exe='" << esc(exePath) << "'\r\n";
+	s << "$tmp=$env:TEMP+'\\vangram_restore_src'\r\n";
+	s << "while(Get-Process -Id $p -ErrorAction SilentlyContinue){Start-Sleep -Milliseconds 500}\r\n";
+	s << "if(Test-Path $tmp){Remove-Item -Recurse -Force $tmp}\r\n";
+	s << "Expand-Archive -Path $zip -DestinationPath $tmp -Force\r\n";
+	s << "Copy-Item -Recurse -Force ($tmp+'\\*') $dst\r\n";
+	s << "Remove-Item -Recurse -Force $tmp\r\n";
+	s << "Start-Process -FilePath $exe\r\n";
+	f.close();
+
+	toast(QStringLiteral("Restoring backup, the app will restart..."));
+	runScriptAndQuit(ps1);
 }
 
 } // namespace Ayu
