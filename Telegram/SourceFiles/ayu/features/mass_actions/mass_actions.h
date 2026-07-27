@@ -32,7 +32,7 @@ public:
 	void stop();
 	[[nodiscard]] bool running() const { return _running; }
 
-signals:
+Q_SIGNALS:
 	void progress(const QString &line);
 	void finished();
 
