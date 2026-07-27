@@ -119,6 +119,8 @@ set(ayugram_files
         ayu/ayu_infra.h
         ayu/ayu_updater.cpp
         ayu/ayu_updater.h
+        ayu/features/mass_actions/mass_actions.cpp
+        ayu/features/mass_actions/mass_actions.h
         ayu/utils/ayu_mapper.cpp
         ayu/utils/ayu_mapper.h
         ayu/utils/qt_key_modifiers_extended.h

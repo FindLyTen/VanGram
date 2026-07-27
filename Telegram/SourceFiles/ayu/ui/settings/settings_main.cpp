@@ -10,6 +10,7 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_updater.h"
+#include "ayu/features/mass_actions/mass_actions.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
@@ -33,6 +34,7 @@
 
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QPlainTextEdit>
 
 namespace Settings {
 
@@ -147,6 +149,74 @@ void BuildUpdateButton(SectionBuilder &builder) {
 	builder.addSkip();
 }
 
+void BuildMassActionsButton(SectionBuilder &builder) {
+	builder.addSkip();
+	builder.addButton({
+		.id = u"vg/mass-actions"_q,
+		.title = rpl::single(QString("Mass Actions")),
+		.icon = { &st::menuIconShowAll },
+		.onClick = [c = builder.controller()] {
+			c->show(Box([=](not_null<Ui::GenericBox*> box) {
+				box->setTitle(rpl::single(QString("Mass Actions")));
+
+				const auto actions = std::make_shared<std::vector<QString>>();
+				*actions = {
+					QStringLiteral("Action: Join by invite link"),
+					QStringLiteral("Action: Subscribe by @username"),
+					QStringLiteral("Action: Leave"),
+				};
+				const auto aIdx = std::make_shared<int>(0);
+				const auto aBtn = box->addRow(
+					object_ptr<Ui::RoundButton>(
+						box,
+						rpl::single((*actions)[0]),
+						st::defaultLightButton),
+					st::boxRowPadding);
+				aBtn->setClickedCallback([=] {
+					*aIdx = (*aIdx + 1) % int(actions->size());
+					aBtn->setText(rpl::single((*actions)[*aIdx]));
+				});
+
+				const auto edit = box->addRow(
+					object_ptr<QPlainTextEdit>(box),
+					st::boxRowPadding);
+				edit->setPlaceholderText(QStringLiteral(
+					"one invite link / @username per line"));
+				edit->setMinimumHeight(160);
+
+				const auto log = box->addRow(
+					object_ptr<Ui::FlatLabel>(box, QString(), st::defaultFlatLabel),
+					st::boxRowPadding);
+				log->setText(QStringLiteral("idle"));
+
+				QObject::connect(
+					&Ayu::MassActions::Instance(),
+					&Ayu::MassActions::progress,
+					box,
+					[=](const QString &line) { log->setText(line); });
+
+				box->addButton(rpl::single(QString("Start")), [=] {
+					const auto targets = edit->toPlainText().split(
+						'\n', Qt::SkipEmptyParts);
+					Ayu::MassActions::Instance().start(
+						static_cast<Ayu::MassActions::Action>(*aIdx),
+						targets,
+						60,
+						120,
+						&c->session());
+				});
+				box->addButton(rpl::single(QString("Stop")), [=] {
+					Ayu::MassActions::Instance().stop();
+				});
+				box->addButton(rpl::single(QString("Close")), [=] {
+					box->closeBox();
+				});
+			}));
+		},
+	});
+	builder.addSkip();
+}
+
 void BuildBackupButtons(SectionBuilder &builder) {
 	builder.addSkip();
 	builder.addButton({
@@ -193,6 +263,7 @@ const auto kMeta = BuildHelper({
 	BuildVersionInfo(builder);
 	BuildUpdateButton(builder);
 	BuildBackupButtons(builder);
+	BuildMassActionsButton(builder);
 	BuildCategories(builder);
 });
 
