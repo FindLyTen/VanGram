@@ -33,6 +33,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
+#include <QtCore/QCoreApplication>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QMap>
@@ -139,6 +140,18 @@ void AccountsMenu::setup() {
 	}, _outer.lifetime());
 
 	updateGeometry();
+
+	// VanGram: tear down subscriptions/buttons early at quit, before the
+	// Domain/accounts are destroyed, to avoid use-after-free during shutdown
+	// (crtisvalidheappointer / debug_heap assertion on exit).
+	QObject::connect(
+		QCoreApplication::instance(),
+		&QCoreApplication::aboutToQuit,
+		&_outer,
+		[=] {
+			_buttons.clear();
+			_sessionsLifetime.destroy();
+		});
 
 	auto &domain = Core::App().domain();
 

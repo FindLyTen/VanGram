@@ -264,7 +264,7 @@ void Tray::updateIcon() {
 				Core::App().unreadBadge(),
 				Core::App().unreadBadgeMuted()),
 			true,
-			Core::App().settings().trayIconMonochrome(),
+			false, // VanGram: always use the colored app logo in the tray.
 			session && session->supportMode()));
 	_icon->updateIcon(forTrayIcon);
 }

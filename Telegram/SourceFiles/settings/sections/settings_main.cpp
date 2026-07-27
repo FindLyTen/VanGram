@@ -89,6 +89,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 
 // AyuGram includes
 #include "ayu/ui/settings/settings_main.h"
+#include "ayu/ayu_updater.h"
 #include "ayu/ui/utils/ayu_profile_values.h"
 #include "ayu/utils/telegram_helpers.h"
 
@@ -590,7 +591,20 @@ void BuildPremiumSection(SectionBuilder &builder) {
 }
 
 void BuildHelpSection(SectionBuilder &builder) {
-	// VanGram: Telegram FAQ / Telegram Features / Ask a Question removed.
+	// VanGram: "Check for Updates" promoted to the main settings page.
+	builder.addButton({
+		.id = u"main/check-updates"_q,
+		.title = rpl::single(QString("Check for Updates")),
+		.icon = { &st::menuIconFaq },
+		.onClick = [=] {
+			auto &u = Ayu::Updater::Instance();
+			if (u.isReady()) {
+				u.applyAndRestart();
+			} else {
+				u.check();
+			}
+		},
+	});
 }
 
 void BuildValidationSuggestions(SectionBuilder &builder) {
