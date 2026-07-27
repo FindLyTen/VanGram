@@ -40,14 +40,14 @@ QString extractUsername(QString link) {
 	const auto tm = link.indexOf(QStringLiteral("t.me/"));
 	if (tm >= 0) {
 		auto u = link.mid(tm + 5);
-		const auto cut = std::initializer_list<int>{
-			u.indexOf('?'), u.indexOf('/'), u.length(),
-		};
-		int m = u.length();
-		for (const auto c : cut) {
-			if (c >= 0 && c < m) {
-				m = c;
-			}
+		auto m = u.length();
+		const auto q = u.indexOf('?');
+		const auto s = u.indexOf('/');
+		if (q >= 0 && q < m) {
+			m = q;
+		}
+		if (s >= 0 && s < m) {
+			m = s;
 		}
 		return u.left(m);
 	}
@@ -86,11 +86,11 @@ void MassActions::start(
 	_index = 0;
 	_running = !_targets.isEmpty();
 	if (!_running) {
-		emit progress(QStringLiteral("No targets."));
-		emit finished();
+		Q_EMIT progress(QStringLiteral("No targets."));
+		Q_EMIT finished();
 		return;
 	}
-	emit progress(QStringLiteral("Starting: %1 targets, action = %2, delay %3-%4s")
+	Q_EMIT progress(QStringLiteral("Starting: %1 targets, action = %2, delay %3-%4s")
 		.arg(_targets.size())
 		.arg(static_cast<int>(_action))
 		.arg(_delayMin)
@@ -103,14 +103,14 @@ void MassActions::stop() {
 		return;
 	}
 	_running = false;
-	emit progress(QStringLiteral("Stopped."));
-	emit finished();
+	Q_EMIT progress(QStringLiteral("Stopped."));
+	Q_EMIT finished();
 }
 
 void MassActions::finish() {
 	_running = false;
-	emit progress(QStringLiteral("Finished."));
-	emit finished();
+	Q_EMIT progress(QStringLiteral("Finished."));
+	Q_EMIT finished();
 }
 
 void MassActions::processNext() {
@@ -129,7 +129,7 @@ void MassActions::processNext() {
 		if (!_running) {
 			return;
 		}
-		emit progress(QStringLiteral("[%1/%2] %3 -> %4")
+		Q_EMIT progress(QStringLiteral("[%1/%2] %3 -> %4")
 			.arg(n).arg(total).arg(_current, ok ? QStringLiteral("OK") : msg));
 		_index++;
 		if (_index >= _targets.size()) {
@@ -138,7 +138,7 @@ void MassActions::processNext() {
 		}
 		const auto span = _delayMax - _delayMin + 1;
 		const auto delay = _delayMin + (span > 1 ? QRandomGenerator::global()->bounded(span) : 0);
-		emit progress(QStringLiteral("    waiting %1s...").arg(delay));
+		Q_EMIT progress(QStringLiteral("    waiting %1s...").arg(delay));
 		QTimer::singleShot(delay * 1000, this, &MassActions::processNext);
 	};
 
