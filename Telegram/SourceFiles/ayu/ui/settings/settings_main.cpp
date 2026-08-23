@@ -29,6 +29,7 @@
 #include "ui/layers/box_content.h"
 #include "ui/layers/generic_box.h"
 #include "ui/widgets/buttons.h"
+#include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
 #include "window/window_session_controller.h"
@@ -180,10 +181,13 @@ void BuildMassActionsButton(SectionBuilder &builder) {
 				});
 
 				const auto edit = box->addRow(
-					object_ptr<QPlainTextEdit>(box),
+					object_ptr<Ui::InputField>(
+						box,
+						st::defaultInputField,
+						Ui::InputField::Mode::MultiLine,
+						rpl::single(QString(
+							"one invite link / @username per line"))),
 					st::boxRowPadding);
-				edit->setPlaceholderText(QStringLiteral(
-					"one invite link / @username per line"));
 				edit->setMinimumHeight(160);
 
 				const auto log = box->addRow(
@@ -198,7 +202,7 @@ void BuildMassActionsButton(SectionBuilder &builder) {
 					[=](const QString &line) { log->setText(line); });
 
 				box->addButton(rpl::single(QString("Start")), [=] {
-					const auto targets = edit->toPlainText().split(
+					const auto targets = edit->getLastText().split(
 						'\n', Qt::SkipEmptyParts);
 					Ayu::MassActions::Instance().start(
 						static_cast<Ayu::MassActions::Action>(*aIdx),
