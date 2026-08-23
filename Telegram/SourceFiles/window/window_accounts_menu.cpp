@@ -18,17 +18,22 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "data/data_peer_values.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/labels.h"
+#include "ui/widgets/popup_menu.h"
 #include "ui/widgets/fields/input_field.h"
+#include "ui/widgets/menu/menu_add_action_callback_factory.h"
 #include "ui/layers/box_content.h"
 #include "ui/layers/generic_box.h"
 #include "ui/wrap/vertical_layout.h"
+#include "ui/wrap/vertical_layout_reorder.h"
 #include "ui/userpic_view.h"
 #include "ui/painter.h"
 #include "ui/ui_utility.h"
 #include "settings/sections/settings_information.h"
 #include "ayu/ui/ayu_userpic.h"
+#include "core/core_settings.h"
 #include "styles/style_window.h"
 #include "styles/style_settings.h"
+#include "styles/style_menu_icons.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
@@ -37,6 +42,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
 #include <QtCore/QMap>
+
+#include <algorithm>
 
 namespace Window {
 
@@ -183,8 +190,12 @@ void AccountsMenu::setup() {
 	// Rebuild on account switch so the active ring is repainted correctly.
 	domain.activeChanges(
 	) | rpl::on_next([=](not_null<Main::Account*>) {
+		// VanGram: rebuild resets the scroll position (resizeToWidth),
+		// so restore it — otherwise switching accounts jumps to top.
+		const auto oldTop = _scroll.scrollTop();
 		_buttons.clear();
 		refresh();
+		_scroll.scrollToY(oldTop);
 	}, _outer.lifetime());
 }
 
@@ -223,6 +234,14 @@ void AccountsMenu::refresh() {
 
 	setShown(authed.size() > 1);
 
+	// VanGram: rebuilding resets the scroll position, restore it
+	// (same approach as FiltersMenu::refresh).
+	const auto oldTop = _scroll.scrollTop();
+
+	if (_reorder) {
+		_reorder->cancel();
+	}
+
 	auto now = base::flat_map<
 		Main::Account*,
 		base::unique_qptr<Ui::SettingsButton>>();
@@ -239,6 +258,127 @@ void AccountsMenu::refresh() {
 	ensureAddButton();
 
 	_container->resizeToWidth(_outer.width());
+
+	// VanGram: drag-n-drop account reorder. Same approach as the accounts
+	// list in settings (Settings::AccountsList::rebuild).
+	if (_list) {
+		if (!_reorder) {
+			_reorder = std::make_unique<Ui::VerticalLayoutReorder>(
+				_list,
+				&_scroll);
+			_reorder->updates(
+			) | rpl::on_next([=](Ui::VerticalLayoutReorder::Single data) {
+				using State = Ui::VerticalLayoutReorder::State;
+				if (data.state == State::Started) {
+					++_reordering;
+				} else {
+					Ui::PostponeCall(_list, [=] {
+						--_reordering;
+					});
+					if (data.state == State::Applied) {
+						applyReorder();
+					}
+				}
+			}, _list->lifetime());
+		}
+		_reorder->start();
+	}
+
+	_scroll.scrollToY(oldTop);
+}
+
+void AccountsMenu::applyReorder() {
+	if (!_list) {
+		return;
+	}
+	std::vector<uint64> order;
+	order.reserve(_buttons.size());
+	for (auto i = 0; i < _list->count(); i++) {
+		const auto widget = _list->widgetAt(i);
+		for (const auto &[account, button] : _buttons) {
+			if (button.get() == widget) {
+				order.push_back(account->session().uniqueId());
+			}
+		}
+	}
+	if (order.size() == _buttons.size()) {
+		Core::App().settings().setAccountsOrder(order);
+		Core::App().saveSettings();
+	}
+}
+
+void AccountsMenu::moveAccount(
+		not_null<Main::Account*> account,
+		int delta) {
+	if (!delta || !_list) {
+		return;
+	}
+	// Build the full uniqueId order the same way Domain::orderedAccounts()
+	// consumes it. Accounts without a session have no uniqueId — skip them.
+	std::vector<uint64> order;
+	std::vector<not_null<Main::Account*>> authed;
+	for (const auto &entry : Core::App().domain().orderedAccounts()) {
+		if (entry->sessionExists()) {
+			order.push_back(entry->session().uniqueId());
+			authed.push_back(entry.get());
+		}
+	}
+	const auto wanted = account->session().uniqueId();
+	const auto it = ranges::find(order, wanted);
+	if (it == end(order)) {
+		return;
+	}
+	const auto oldIndex = int(it - begin(order));
+	const auto newIndex = std::clamp(
+		oldIndex + delta,
+		0,
+		int(order.size()) - 1);
+	if (newIndex == oldIndex) {
+		return;
+	}
+	if (newIndex < oldIndex) {
+		order.insert(begin(order) + newIndex, wanted);
+		order.erase(begin(order) + oldIndex + 1);
+	} else {
+		order.insert(begin(order) + newIndex + 1, wanted);
+		order.erase(begin(order) + oldIndex);
+	}
+	Core::App().settings().setAccountsOrder(order);
+	Core::App().saveSettings();
+	_buttons.clear();
+	refresh();
+}
+
+void AccountsMenu::showAccountMenu(
+		not_null<Main::Account*> account,
+		Qt::KeyboardModifiers modifiers) {
+	if (modifiers & Qt::ControlModifier) {
+		activate(account, modifiers);
+		return;
+	}
+	const auto i = _buttons.find(account);
+	if (i == end(_buttons)) {
+		return;
+	}
+	_popupMenu = nullptr;
+	_popupMenu = base::make_unique_q<Ui::PopupMenu>(
+		i->second.get(),
+		st::popupMenuWithIcons);
+	const auto addAction = Ui::Menu::CreateAddActionCallback(_popupMenu);
+	addAction(Ui::Menu::MenuCallback::Args{
+		.text = QString("Move up"),
+		.handler = crl::guard(&_outer, [=] { moveAccount(account, -1); }),
+	});
+	addAction(Ui::Menu::MenuCallback::Args{
+		.text = QString("Move down"),
+		.handler = crl::guard(&_outer, [=] { moveAccount(account, 1); }),
+	});
+	addAction(Ui::Menu::MenuCallback::Args{
+		.text = QString("Edit tag"),
+		.handler = crl::guard(&_outer, [=] { editTagBox(account->session().uniqueId()); }),
+		.icon = &st::menuIconEdit,
+	});
+	_popupMenu->popup(QCursor::pos());
 }
 
 base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
@@ -336,11 +476,14 @@ base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 	raw->clicks(
 	) | rpl::on_next([=](Qt::MouseButton which) {
 		if (which == Qt::LeftButton) {
+			if (_reordering) {
+				return;
+			}
 			activate(account, raw->clickModifiers());
 		} else if (which == Qt::MiddleButton) {
 			activate(account, Qt::ControlModifier);
 		} else if (which == Qt::RightButton) {
-			editTagBox(key);
+			showAccountMenu(account, raw->clickModifiers());
 		}
 	}, raw->lifetime());
 
