@@ -11,6 +11,7 @@
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_updater.h"
 #include "ayu/features/archive_reader/archive_reader.h"
+#include "ayu/features/contacts_manager/contacts_manager.h"
 #include "ayu/features/mass_actions/mass_actions.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
@@ -320,6 +321,19 @@ void BuildCacheButton(SectionBuilder &builder) {
 	});
 }
 
+void BuildContactsManagerButton(SectionBuilder &builder) {
+	builder.addSkip();
+	builder.addButton({
+		.id = u"vg/contacts-manager"_q,
+		.title = rpl::single(QString("Contacts manager")),
+		.icon = { &st::menuIconProfile },
+		.onClick = [c = builder.controller()] {
+			Ayu::ContactsManager::ShowContactsManager(c);
+		},
+	});
+	builder.addSkip();
+}
+
 void BuildAutoBackupButtons(SectionBuilder &builder) {
 	// VanGram: auto-backup on quit settings (tdata/vangram_auto_backup.json).
 	struct State {
@@ -447,6 +461,7 @@ const auto kMeta = BuildHelper({
 	BuildMassActionsButton(builder);
 	BuildArchiveReaderButtons(builder);
 	BuildCacheButton(builder);
+	BuildContactsManagerButton(builder);
 	BuildCategories(builder);
 });
 
