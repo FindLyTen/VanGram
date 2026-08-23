@@ -170,7 +170,9 @@ void Updater::applyAndRestart() {
 	runScriptAndQuit(ps1);
 }
 
-void Updater::runScriptAndQuit(const QString &ps1Path) {
+void Updater::runScriptAndQuit(
+		const QString &ps1Path,
+		bool silent) {
 	QStringList args;
 	args << QStringLiteral("-ExecutionPolicy")
 		 << QStringLiteral("Bypass")
@@ -180,13 +182,15 @@ void Updater::runScriptAndQuit(const QString &ps1Path) {
 		 << QStringLiteral("-File")
 		 << ps1Path;
 	if (!QProcess::startDetached(QStringLiteral("powershell"), args)) {
-		toast(QStringLiteral("Failed: cannot start helper script."));
+		if (!silent) {
+			toast(QStringLiteral("Failed: cannot start helper script."));
+		}
 		return;
 	}
 	Core::Quit();
 }
 
-void Updater::createBackup(const QString &zipPath) {
+void Updater::createBackup(const QString &zipPath, bool silent) {
 	if (zipPath.isEmpty()) {
 		return;
 	}
@@ -226,8 +230,10 @@ void Updater::createBackup(const QString &zipPath) {
 	s << "Start-Process -FilePath $exe\r\n";
 	f.close();
 
-	toast(QStringLiteral("Creating backup, the app will restart..."));
-	runScriptAndQuit(ps1);
+	if (!silent) {
+		toast(QStringLiteral("Creating backup, the app will restart..."));
+	}
+	runScriptAndQuit(ps1, silent);
 }
 
 void Updater::restoreBackup(const QString &zipPath) {

@@ -29,7 +29,8 @@ public:
 	// VanGram integrated backup/restore. Both write a PowerShell helper
 	// that runs after the app quits (so tdata files are closed and the
 	// copy is consistent), then relaunch the app.
-	void createBackup(const QString &zipPath);
+	// silent = no toast (used by the auto-backup-on-quit flow).
+	void createBackup(const QString &zipPath, bool silent = false);
 	void restoreBackup(const QString &zipPath);
 
 	[[nodiscard]] bool isReady() const { return _ready; }
@@ -39,7 +40,7 @@ private:
 	void onManifest(QNetworkReply *reply);
 	void startDownload(const QString &url);
 	void onDownloaded();
-	void runScriptAndQuit(const QString &ps1Path);
+	void runScriptAndQuit(const QString &ps1Path, bool silent = false);
 
 	QNetworkAccessManager *_nam = nullptr;
 	QString _zipPath;

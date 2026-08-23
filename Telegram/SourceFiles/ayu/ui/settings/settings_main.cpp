@@ -10,6 +10,7 @@
 #include "lang_auto.h"
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_updater.h"
+#include "ayu/features/archive_reader/archive_reader.h"
 #include "ayu/features/mass_actions/mass_actions.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
@@ -19,6 +20,11 @@
 #include "ayu/ui/settings/settings_general.h"
 #include "ayu/ui/settings/settings_other.h"
 #include "core/version.h"
+#include "core/application.h"
+#include "main/main_domain.h"
+#include "main/main_account.h"
+#include "main/main_session.h"
+#include "data/data_session.h"
 #include "settings/settings_builder.h"
 #include "settings/settings_common.h"
 #include "styles/style_ayu_settings.h"
@@ -37,6 +43,15 @@
 
 #include <QDesktopServices>
 #include <QFileDialog>
+#include <QtCore/QCoreApplication>
+#include <QtCore/QDir>
+#include <QtCore/QFile>
+#include <QtCore/QJsonDocument>
+#include <QtCore/QJsonObject>
+
+#include <algorithm>
+
+#include "rpl/variable.h"
 #include <QPlainTextEdit>
 
 namespace Settings {
@@ -223,6 +238,165 @@ void BuildMassActionsButton(SectionBuilder &builder) {
 	builder.addSkip();
 }
 
+void BuildArchiveReaderButtons(SectionBuilder &builder) {
+	// VanGram: auto-read archive settings
+	// (tdata/vangram_archive_reader.json).
+	const auto configPath = [] {
+		return QCoreApplication::applicationDirPath()
+			+ QStringLiteral("/tdata/vangram_archive_reader.json");
+	};
+	const auto state = std::make_shared<int>(6);
+	const auto load = [=] {
+		QFile f(configPath());
+		if (f.open(QIODevice::ReadOnly)) {
+			const auto obj = QJsonDocument::fromJson(f.readAll()).object();
+			*state = std::clamp(
+				obj.value(QStringLiteral("intervalHours")).toInt(6),
+				1,
+				24 * 7);
+		}
+	};
+	const auto save = [=] {
+		QJsonObject obj;
+		obj[QStringLiteral("intervalHours")] = *state;
+		QDir().mkpath(QCoreApplication::applicationDirPath()
+			+ QStringLiteral("/tdata"));
+		QFile f(configPath());
+		if (f.open(QIODevice::WriteOnly)) {
+			f.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+		}
+	};
+	load();
+
+	const auto intervals = std::make_shared<std::vector<int>>();
+	*intervals = { 3, 6, 12, 24 };
+	const auto intervalLabel = std::make_shared<
+		rpl::variable<QString>>(
+			QString::number(*state) + "h");
+	builder.addButton({
+		.id = u"vg/archive-reader-interval"_q,
+		.title = rpl::single(QString("Auto-read archive interval")),
+		.label = intervalLabel->value(),
+		.icon = { &st::menuIconMarkRead },
+		.onClick = [=] {
+			const auto it = ranges::find(*intervals, *state);
+			auto idx = (it == end(*intervals))
+				? 0
+				: int(it - begin(*intervals));
+			idx = (idx + 1) % int(intervals->size());
+			*state = (*intervals)[idx];
+			save();
+			*intervalLabel = QString::number(*state) + "h";
+		},
+	});
+	builder.addButton({
+		.id = u"vg/archive-reader-now"_q,
+		.title = rpl::single(QString("Read archive now (all accounts)")),
+		.icon = { &st::menuIconMarkRead },
+		.onClick = [] {
+			Ayu::ArchiveReader::runOnce();
+		},
+	});
+}
+
+void BuildCacheButton(SectionBuilder &builder) {
+	builder.addButton({
+		.id = u"vg/clean-cache"_q,
+		.title = rpl::single(QString("Clean cache now (all accounts)")),
+		.icon = { &st::menuIconClear },
+		.onClick = [] {
+			if (!Core::IsAppLaunched()) {
+				return;
+			}
+			auto count = 0;
+			for (const auto &[index, account]
+				: Core::App().domain().accounts()) {
+				if (const auto session = account->maybeSession()) {
+					session->data().clearLocalStorage();
+					++count;
+				}
+			}
+		},
+	});
+}
+
+void BuildAutoBackupButtons(SectionBuilder &builder) {
+	// VanGram: auto-backup on quit settings (tdata/vangram_auto_backup.json).
+	struct State {
+		bool enabled = true;
+		int intervalHours = 24;
+	};
+	const auto state = std::make_shared<State>();
+
+	const auto configPath = [] {
+		return QCoreApplication::applicationDirPath()
+			+ QStringLiteral("/tdata/vangram_auto_backup.json");
+	};
+	const auto load = [=] {
+		QFile f(configPath());
+		if (f.open(QIODevice::ReadOnly)) {
+			const auto obj = QJsonDocument::fromJson(f.readAll()).object();
+			state->enabled = obj.value(QStringLiteral("enabled")).toBool(true);
+			state->intervalHours = std::clamp(
+				obj.value(QStringLiteral("intervalHours")).toInt(24),
+				6,
+				24 * 7);
+		}
+	};
+	const auto save = [=] {
+		QJsonObject obj;
+		obj[QStringLiteral("enabled")] = state->enabled;
+		obj[QStringLiteral("intervalHours")] = state->intervalHours;
+		QDir().mkpath(QCoreApplication::applicationDirPath()
+			+ QStringLiteral("/tdata"));
+		QFile f(configPath());
+		if (f.open(QIODevice::WriteOnly)) {
+			f.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
+		}
+	};
+	load();
+
+	const auto intervals = std::make_shared<std::vector<int>>();
+	*intervals = { 12, 24, 48 };
+	const auto enabledLabel = std::make_shared<
+		rpl::variable<QString>>(
+			state->enabled ? QString("ON") : QString("OFF"));
+	const auto intervalLabel = std::make_shared<
+		rpl::variable<QString>>(
+			QString::number(state->intervalHours) + "h");
+	builder.addButton({
+		.id = u"vg/auto-backup"_q,
+		.title = rpl::single(QString("Auto-backup on quit")),
+		.label = enabledLabel->value(),
+		.icon = { &st::menuIconDownload },
+		.onClick = [=] {
+			state->enabled = !state->enabled;
+			save();
+			*enabledLabel = state->enabled
+				? QString("ON")
+				: QString("OFF");
+		},
+	});
+	builder.addButton({
+		.id = u"vg/auto-backup-interval"_q,
+		.title = rpl::single(QString("Auto-backup interval")),
+		.label = intervalLabel->value(),
+		.icon = { &st::menuIconIpAddress },
+		.onClick = [=] {
+			const auto it = ranges::find(
+				*intervals,
+				state->intervalHours);
+			auto idx = (it == end(*intervals))
+				? 0
+				: int(it - begin(*intervals));
+			idx = (idx + 1) % int(intervals->size());
+			state->intervalHours = (*intervals)[idx];
+			save();
+			*intervalLabel = QString::number(state->intervalHours) + "h";
+		},
+	});
+}
+
 void BuildBackupButtons(SectionBuilder &builder) {
 	builder.addSkip();
 	builder.addButton({
@@ -255,6 +429,7 @@ void BuildBackupButtons(SectionBuilder &builder) {
 			}
 		},
 	});
+	BuildAutoBackupButtons(builder);
 	builder.addSkip();
 }
 
@@ -270,6 +445,8 @@ const auto kMeta = BuildHelper({
 	BuildUpdateButton(builder);
 	BuildBackupButtons(builder);
 	BuildMassActionsButton(builder);
+	BuildArchiveReaderButtons(builder);
+	BuildCacheButton(builder);
 	BuildCategories(builder);
 });
 

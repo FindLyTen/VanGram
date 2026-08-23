@@ -11,6 +11,8 @@
 #include "ayu/ayu_ui_settings.h"
 #include "ayu/ayu_worker.h"
 #include "ayu/data/ayu_database.h"
+#include "ayu/features/archive_reader/archive_reader.h"
+#include "ayu/features/auto_backup/auto_backup.h"
 #include "ayu/ui/ayu_logo.h"
 #include "features/translator/ayu_translator.h"
 #include "lang/lang_instance.h"
@@ -132,6 +134,22 @@ void initCacheCleaner() {
 	});
 }
 
+// VanGram: automatic Mega backup on quit (see ayu/features/auto_backup).
+void initAutoBackup() {
+	static auto started = false;
+	if (started) {
+		return;
+	}
+	started = true;
+	QObject::connect(
+		QCoreApplication::instance(),
+		&QCoreApplication::aboutToQuit,
+		qApp,
+		[] {
+			Ayu::AutoBackup::maybeBackupOnQuit();
+		});
+}
+
 void init() {
 	initLang();
 	initDatabase();
@@ -141,6 +159,8 @@ void init() {
 	initRCManager();
 	initTranslator();
 	initCacheCleaner();
+	initAutoBackup();
+	Ayu::ArchiveReader::init();
 }
 
 }
