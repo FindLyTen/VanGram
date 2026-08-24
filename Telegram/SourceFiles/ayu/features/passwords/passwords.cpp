@@ -305,7 +305,8 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 			const auto queue = std::make_shared<std::vector<AccountInfo>>(
 				without);
 			const auto progress = std::make_shared<int>(0);
-			const auto step = [=] {
+			const auto step = std::make_shared<Fn<void()>>();
+			*step = [=] {
 				if (queue->empty()) {
 					log->setText(QStringLiteral(
 						"Done: %1 accounts").arg(*progress));
@@ -324,10 +325,10 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 						log->setText(QStringLiteral("%1: FAILED (%2)")
 							.arg(acc.name, error));
 					}
-					step();
+					(*step)();
 				});
 			};
-			step();
+			(*step)();
 		});
 		box->addButton(rpl::single(QString("Close")), [=] {
 			box->closeBox();
