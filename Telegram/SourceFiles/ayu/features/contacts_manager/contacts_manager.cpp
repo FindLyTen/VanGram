@@ -99,7 +99,7 @@ void deleteContacts(
 		std::vector<not_null<UserData*>> users) {
 	for (auto from = begin(users); from != end(users);) {
 		const auto to = std::min(from + kDeleteChunk, end(users));
-		auto inputs = std::vector<MTPInputUser>();
+		auto inputs = QVector<MTPInputUser>();
 		inputs.reserve(to - from);
 		for (auto it = from; it != to; ++it) {
 			inputs.push_back((*it)->inputUser());
@@ -154,18 +154,7 @@ void showListBox(
 		const auto rows = std::make_shared<std::vector<Row>>();
 		const auto checkedIds = std::make_shared<QSet<PeerId>>();
 
-		const auto listWrap = content->add(
-			object_ptr<Ui::ScrollArea>(content),
-			st::boxRowPadding);
-		const auto list = Ui::CreateChild<Ui::VerticalLayout>(
-			listWrap.get());
-		listWrap->setOwnedWidget(object_ptr<Ui::VerticalLayout>(list));
-		// Fixed height, scrollable inside.
-		listWrap->setMaximumHeight(320);
-
 		const auto rebuild = [=] {
-			// Destroys all previously added checkbox widgets.
-			list->clear();
 			auto items = contactsOf(session, mine);
 			std::sort(
 				begin(items),
@@ -185,9 +174,9 @@ void showListBox(
 				if (item.mine) {
 					label += QStringLiteral("  [my account]");
 				}
-				const auto check = list->add(
+				const auto check = content->add(
 					object_ptr<Ui::Checkbox>(
-						list,
+						content,
 						label,
 						false,
 						st::defaultBoxCheckbox),
@@ -205,7 +194,7 @@ void showListBox(
 			}
 			info->setText(QStringLiteral("Contacts: %1").arg(
 				rows->size()));
-			list->resizeToWidth(st::boxWidth);
+			content->resizeToWidth(st::boxWidth);
 		};
 		rebuild();
 

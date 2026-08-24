@@ -10,6 +10,7 @@
 #include "data/data_histories.h"
 #include "data/data_peer.h"
 #include "dialogs/dialogs_list.h"
+#include "history/history.h"
 
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>

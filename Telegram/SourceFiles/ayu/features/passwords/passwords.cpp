@@ -204,17 +204,10 @@ void ShowPasswordsBox(not_null<Window::SessionController*> controller) {
 				st::defaultFlatLabel),
 			st::boxRowPadding);
 
-		const auto listWrap = content->add(
-			object_ptr<Ui::ScrollArea>(content),
-			st::boxRowPadding);
-		const auto list = Ui::CreateChild<Ui::VerticalLayout>(
-			listWrap.get());
-		listWrap->setOwnedWidget(object_ptr<Ui::VerticalLayout>(list));
-		listWrap->setMaximumHeight(340);
+		const auto list = content;
 
 		const auto rebuild = [=] {
-			list->clear();
-			const auto accounts = accountInfos();
+			auto accounts = accountInfos();
 			auto saved = 0;
 			for (const auto &acc : accounts) {
 				const auto it = store().constFind(acc.uniqueId);
