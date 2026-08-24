@@ -8,6 +8,7 @@
 #include "main/main_session.h"
 #include "data/data_user.h"
 #include "mtproto/mtproto_dc_options.h"
+#include "apiwrap.h"
 #include "window/window_session_controller.h"
 #include "ui/layers/box_content.h"
 #include "ui/layers/generic_box.h"
@@ -21,6 +22,7 @@
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
 #include "styles/style_boxes.h"
+#include "styles/style_window.h"
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDateTime>
