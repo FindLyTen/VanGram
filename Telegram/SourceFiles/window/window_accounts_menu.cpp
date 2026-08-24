@@ -30,6 +30,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "settings/sections/settings_information.h"
 #include "ayu/ui/ayu_userpic.h"
+#include "ayu/features/passwords/passwords.h"
 #include "core/core_settings.h"
 #include "styles/style_window.h"
 #include "styles/style_settings.h"
@@ -256,6 +257,7 @@ void AccountsMenu::refresh() {
 	_buttons = std::move(now);
 
 	ensureAddButton();
+	ensurePasswordsButton();
 
 	_container->resizeToWidth(_outer.width());
 
@@ -612,6 +614,54 @@ void AccountsMenu::ensureAddButton() {
 	}, raw->lifetime());
 
 	_addButton = std::move(button);
+}
+
+void AccountsMenu::ensurePasswordsButton() {
+	// VanGram: 2FA password manager entry at the bottom of the sidebar.
+	if (_passwordsButton) {
+		return;
+	}
+	auto button = base::unique_qptr<Ui::SettingsButton>(
+		_container->add(object_ptr<Ui::SettingsButton>(
+			_container,
+			rpl::single(QString("2FA Passwords")),
+			st::mainMenuAddAccountButton)));
+	const auto raw = button.get();
+
+	// Key icon in the userpic slot.
+	struct IconState {
+		explicit IconState(QWidget *parent) : w(parent) {
+			w.setAttribute(Qt::WA_TransparentForMouseEvents);
+		}
+		Ui::RpWidget w;
+	};
+	const auto st = raw->lifetime().make_state<IconState>(raw);
+	st->w.show();
+	const auto iconSize = st::settingsIconAdd.width();
+	raw->heightValue(
+	) | rpl::on_next([=](int height) {
+		const auto left = st::mainMenuAddAccountButton.iconLeft;
+		const auto top = (height - iconSize) / 2;
+		st->w.setGeometry(left, top, iconSize, iconSize);
+	}, st->w.lifetime());
+	st->w.paintRequest(
+	) | rpl::on_next([=] {
+		auto p = QPainter(&st->w);
+		st::menuIcon2SV.paint(p, 0, 0, st->w.width());
+	}, st->w.lifetime());
+
+	raw->clicks(
+	) | rpl::on_next([=](Qt::MouseButton which) {
+		if (which == Qt::LeftButton) {
+			const auto window = Core::App().activePrimaryWindow();
+			if (window && window->sessionController()) {
+				Ayu::Passwords::ShowPasswordsBox(
+					window->sessionController());
+			}
+		}
+	}, raw->lifetime());
+
+	_passwordsButton = std::move(button);
 }
 
 } // namespace Window

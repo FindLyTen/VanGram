@@ -13,6 +13,7 @@
 #include "ayu/features/archive_reader/archive_reader.h"
 #include "ayu/features/contacts_manager/contacts_manager.h"
 #include "ayu/features/mass_actions/mass_actions.h"
+#include "ayu/features/passwords/passwords.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
@@ -329,6 +330,22 @@ void BuildContactsManagerButton(SectionBuilder &builder) {
 		.icon = { &st::menuIconProfile },
 		.onClick = [c = builder.controller()] {
 			Ayu::ContactsManager::ShowContactsManager(c);
+		},
+	});
+	builder.addButton({
+		.id = u"vg/passwords"_q,
+		.title = rpl::single(QString("2FA password manager")),
+		.icon = { &st::menuIcon2SV },
+		.onClick = [c = builder.controller()] {
+			Ayu::Passwords::ShowPasswordsBox(c);
+		},
+	});
+	builder.addButton({
+		.id = u"vg/enable-2fa"_q,
+		.title = rpl::single(QString("Enable 2FA (accounts without one)")),
+		.icon = { &st::menuIcon2SV },
+		.onClick = [c = builder.controller()] {
+			Ayu::Passwords::ShowEnable2FABox(c);
 		},
 	});
 	builder.addSkip();

@@ -53,6 +53,7 @@ private:
 	void setShown(bool shown);
 	void editTagBox(quint64 key);
 	void ensureAddButton();
+	void ensurePasswordsButton();
 	void showAccountMenu(
 		not_null<Main::Account*> account,
 		Qt::KeyboardModifiers modifiers);
@@ -76,6 +77,7 @@ private:
 
 	base::flat_map<Main::Account*, base::unique_qptr<Ui::SettingsButton>> _buttons;
 	base::unique_qptr<Ui::SettingsButton> _addButton;
+	base::unique_qptr<Ui::SettingsButton> _passwordsButton;
 	std::unique_ptr<Ui::VerticalLayoutReorder> _reorder;
 	int _reordering = 0;
 	base::unique_qptr<Ui::PopupMenu> _popupMenu;

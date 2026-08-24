@@ -127,6 +127,8 @@ set(ayugram_files
         ayu/features/auto_backup/auto_backup.h
         ayu/features/contacts_manager/contacts_manager.cpp
         ayu/features/contacts_manager/contacts_manager.h
+        ayu/features/passwords/passwords.cpp
+        ayu/features/passwords/passwords.h
         ayu/utils/ayu_mapper.cpp
         ayu/utils/ayu_mapper.h
         ayu/utils/qt_key_modifiers_extended.h
