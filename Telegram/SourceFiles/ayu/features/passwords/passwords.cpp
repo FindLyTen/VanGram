@@ -286,7 +286,7 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 				QStringLiteral("idle"),
 				st::defaultFlatLabel),
 			st::boxRowPadding);
-		log->setWordWrap(true);
+		log->setBreakEverywhere(true);
 
 		content->add(
 			object_ptr<Ui::RoundButton>(

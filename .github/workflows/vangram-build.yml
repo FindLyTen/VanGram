@@ -33,6 +33,28 @@ jobs:
         shell: cmd
 
     steps:
+      - name: Free up runner disk (unused toolchains).
+        shell: pwsh
+        run: |
+          $targets = @(
+            'C:\Android',
+            'C:\Program Files\Android',
+            'C:\Program Files (x86)\Android',
+            'C:\ghcup',
+            'C:\mingw64',
+            'C:\hostedtoolcache\windows',
+            'C:\Program Files\Eclipse Foundation',
+            'C:\Program Files\Saxonica',
+            'C:\Program Files\Amazon AWS'
+          )
+          foreach ($t in $targets) {
+            if (Test-Path $t) {
+              Write-Host "Removing $t"
+              Remove-Item -Recurse -Force $t -ErrorAction SilentlyContinue
+            }
+          }
+          Get-PSDrive C | Format-Table Used,Free
+
       - name: Prepare directories.
         run: |
           mkdir %userprofile%\TBuild\Libraries
