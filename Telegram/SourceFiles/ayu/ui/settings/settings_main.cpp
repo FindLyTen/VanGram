@@ -276,10 +276,10 @@ void BuildArchiveReaderButtons(SectionBuilder &builder) {
 		rpl::variable<QString>>(
 			QString::number(*state) + "h");
 	builder.addButton({
-		.id = u"vg/archive-reader-interval"_q,
-		.title = rpl::single(QString("Auto-read archive interval")),
-		.label = intervalLabel->value(),
-		.icon = { &st::menuIconMarkRead },
+ 		.id = u"vg/archive-reader-interval"_q,
+ 		.title = rpl::single(QString("Auto-read archive interval")),
+ 		.icon = { &st::menuIconMarkRead },
+ 		.label = intervalLabel->value(),
 		.onClick = [=] {
 			const auto it = ranges::find(*intervals, *state);
 			auto idx = (it == end(*intervals))
@@ -396,10 +396,10 @@ void BuildAutoBackupButtons(SectionBuilder &builder) {
 		rpl::variable<QString>>(
 			QString::number(state->intervalHours) + "h");
 	builder.addButton({
-		.id = u"vg/auto-backup"_q,
-		.title = rpl::single(QString("Auto-backup on quit")),
-		.label = enabledLabel->value(),
-		.icon = { &st::menuIconDownload },
+ 		.id = u"vg/auto-backup"_q,
+ 		.title = rpl::single(QString("Auto-backup on quit")),
+ 		.icon = { &st::menuIconDownload },
+ 		.label = enabledLabel->value(),
 		.onClick = [=] {
 			state->enabled = !state->enabled;
 			save();
@@ -409,10 +409,10 @@ void BuildAutoBackupButtons(SectionBuilder &builder) {
 		},
 	});
 	builder.addButton({
-		.id = u"vg/auto-backup-interval"_q,
-		.title = rpl::single(QString("Auto-backup interval")),
-		.label = intervalLabel->value(),
-		.icon = { &st::menuIconIpAddress },
+ 		.id = u"vg/auto-backup-interval"_q,
+ 		.title = rpl::single(QString("Auto-backup interval")),
+ 		.icon = { &st::menuIconIpAddress },
+ 		.label = intervalLabel->value(),
 		.onClick = [=] {
 			const auto it = ranges::find(
 				*intervals,
