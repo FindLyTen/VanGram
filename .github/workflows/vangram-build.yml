@@ -67,6 +67,9 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: sccache (compiler cache).
+        uses: mozilla-actions/sccache-action@v0.0.11
+
       - name: Get repository name.
         shell: bash
         run: echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
@@ -92,6 +95,10 @@ jobs:
           echo "Configurate git for cherry-picks."
           git config --global user.email "vangram@local"
           git config --global user.name "VanGram CI"
+
+          echo "SCCACHE_GHA_ENABLED=true" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_CACHE_SIZE=8G" >> $GITHUB_ENV
+          echo "SCCACHE_GHA_CACHE_READ_ONLY=false" >> $GITHUB_ENV
 
       - uses: ilammy/msvc-dev-cmd@v1
         name: Native Tools Command Prompt.
@@ -154,6 +161,8 @@ jobs:
           qt6 ^
           -D TDESKTOP_API_ID=%TDESKTOP_API_ID% ^
           -D TDESKTOP_API_HASH=%TDESKTOP_API_HASH% ^
+          -D CMAKE_C_COMPILER_LAUNCHER=sccache ^
+          -D CMAKE_CXX_COMPILER_LAUNCHER=sccache ^
           -D CMAKE_CONFIGURATION_TYPES=Debug ^
           -D CMAKE_CXX_FLAGS_DEBUG="/Z7 /Ob0 /Od /RTC1" ^
           -D CMAKE_EXE_LINKER_FLAGS="dnsapi.lib" ^
