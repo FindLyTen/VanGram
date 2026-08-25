@@ -112,17 +112,17 @@ jobs:
           nuget sources Disable -Name "Microsoft Visual Studio Offline Packages"
           nuget sources Add -Source https://api.nuget.org/v3/index.json & exit 0
 
-      - name: ThirdParty cache.
+      - name: ThirdParty cache (restore).
         id: cache-third-party
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ${{ env.TBUILD }}/ThirdParty
           key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-${{ runner.arch }}-third-party-
 
-      - name: Libraries cache.
+      - name: Libraries cache (restore).
         id: cache-libs
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.LibrariesPath }}/*
@@ -133,9 +133,9 @@ jobs:
           key: ${{ runner.OS }}-x64-libs-${{ env.CACHE_KEY }}
           restore-keys: ${{ runner.OS }}-x64-libs-
 
-      - name: Qt cache.
+      - name: Qt cache (restore).
         id: cache-qt
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: |
             ${{ env.LibrariesPath }}/[qQ]t[_-]*
@@ -144,12 +144,41 @@ jobs:
           restore-keys: ${{ runner.OS }}-x64-qt6-
 
       - name: Libraries.
+        id: libs
         run: |
           %TBUILD%\%REPO_NAME%\Telegram\build\prepare\win.bat skip-release silent qt6
 
       - name: Free up some disk space.
         shell: bash
         run: find $LibrariesPath '(' '(' ! '(' -name '*.lib' -o -name '*.a' -o -name '*.exe' -o -name '*.h' -o -name '*.hpp' -o -name '*.inc' -o -name '*.cmake' -o -path '*/include/*' -o -path '*/objects-*' -o -path '*/cache_keys/*' -o -path '*/patches/*' ')' -type f ')' -o -empty ')' -delete
+
+      - name: ThirdParty cache (save, survives build failure).
+        if: always() && steps.libs.outcome == 'success' && steps.cache-third-party.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.TBUILD }}/ThirdParty
+          key: ${{ runner.OS }}-${{ runner.arch }}-third-party-${{ env.CACHE_KEY }}
+
+      - name: Libraries cache (save, survives build failure).
+        if: always() && steps.libs.outcome == 'success' && steps.cache-libs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}/*
+            !${{ env.LibrariesPath }}/cache_keys
+            !${{ env.LibrariesPath }}/[qQ]t[_-]*
+            ${{ env.LibrariesPath }}/cache_keys/*
+            !${{ env.LibrariesPath }}/cache_keys/[qQ]t[_-]*
+          key: ${{ runner.OS }}-x64-libs-${{ env.CACHE_KEY }}
+
+      - name: Qt cache (save, survives build failure).
+        if: always() && steps.libs.outcome == 'success' && steps.cache-qt.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ${{ env.LibrariesPath }}/[qQ]t[_-]*
+            ${{ env.LibrariesPath }}/cache_keys/[qQ]t[_-]*
+          key: ${{ runner.OS }}-x64-qt6-${{ env.CACHE_KEY }}
 
       - name: VanGram build.
         if: env.ONLY_CACHE == 'false'
