@@ -32,12 +32,14 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "settings/sections/settings_information.h"
 #include "ayu/ui/ayu_userpic.h"
 #include "ayu/features/passwords/passwords.h"
+#include "ayu/ayu_tag_sync.h"
 #include "core/core_settings.h"
 #include "styles/style_window.h"
 #include "styles/style_settings.h"
 #include "styles/style_menu_icons.h"
 
 #include <QtCore/QCoreApplication>
+#include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
 #include <QtCore/QCoreApplication>
@@ -59,13 +61,18 @@ QString tagFilePath() {
 struct TagInfo {
 	QString text;
 	QString color; // hex (e.g. "#2aabee"); empty = default accent
+	qint64 updated_at = 0;
+	bool deleted = false;
 };
 
+QMap<quint64, TagInfo> g_tagsMap;
+bool g_tagsLoaded = false;
+Fn<void()> loadedReset;
+
 QMap<quint64, TagInfo> &tagsMap() {
-	static QMap<quint64, TagInfo> map;
-	static bool loaded = false;
-	if (!loaded) {
-		loaded = true;
+	if (!g_tagsLoaded) {
+		g_tagsLoaded = true;
+		loadedReset = [] { g_tagsMap.clear(); g_tagsLoaded = false; };
 		QFile f(tagFilePath());
 		if (f.open(QIODevice::ReadOnly)) {
 			const auto obj = QJsonDocument::fromJson(f.readAll()).object();
@@ -73,17 +80,29 @@ QMap<quint64, TagInfo> &tagsMap() {
 				const auto v = it.value();
 				if (v.isObject()) {
 					const auto o = v.toObject();
-					map[it.key().toULongLong()] = {
+					g_tagsMap[it.key().toULongLong()] = {
 						o.value(QStringLiteral("text")).toString(),
 						o.value(QStringLiteral("color")).toString(),
+						o.value(QStringLiteral("updated_at"))
+							.toVariant().toLongLong(),
+						o.value(QStringLiteral("deleted")).toBool(),
 					};
 				} else {
-					map[it.key().toULongLong()] = { v.toString(), QString() };
+					// legacy format (plain string) from older builds
+					g_tagsMap[it.key().toULongLong()] = { v.toString(), QString(), 0, false };
 				}
 			}
 		}
 	}
-	return map;
+	return g_tagsMap;
+}
+
+void reloadTagsFromDisk() {
+	// drop the cached map so the next tagsMap() call re-reads the file
+	// (used after a successful Pull from another device)
+	if (loadedReset) {
+		loadedReset();
+	}
 }
 
 void saveTags() {
@@ -92,6 +111,8 @@ void saveTags() {
 		QJsonObject o;
 		o[QStringLiteral("text")] = it.value().text;
 		o[QStringLiteral("color")] = it.value().color;
+		o[QStringLiteral("updated_at")] = double(it.value().updated_at);
+		o[QStringLiteral("deleted")] = it.value().deleted;
 		obj[QString::number(it.key())] = o;
 	}
 	QDir().mkpath(
@@ -100,21 +121,37 @@ void saveTags() {
 	if (f.open(QIODevice::WriteOnly)) {
 		f.write(QJsonDocument(obj).toJson(QJsonDocument::Compact));
 	}
+	// VanGram: sync tags to other devices (best-effort, non-blocking).
+	Ayu::TagsSync::Push(obj);
 }
 
 QString tagValue(quint64 key) {
-	return tagsMap().value(key).text;
+	const auto &info = tagsMap().value(key);
+	return info.deleted ? QString() : info.text;
 }
 
 QString tagColor(quint64 key) {
-	return tagsMap().value(key).color;
+	const auto &info = tagsMap().value(key);
+	return info.deleted ? QString() : info.color;
 }
 
 void setTagValue(quint64 key, const QString &text, const QString &color) {
 	if (text.isEmpty()) {
-		tagsMap().remove(key);
+		// deleting: keep a tombstone so the deletion syncs to other devices
+		auto t = TagInfo{
+			QString(),
+			QString(),
+			QDateTime::currentSecsSinceEpoch(),
+			true,
+		};
+		tagsMap()[key] = t;
 	} else {
-		tagsMap()[key] = { text, color };
+		tagsMap()[key] = {
+			text,
+			color,
+			QDateTime::currentSecsSinceEpoch(),
+			false,
+		};
 	}
 }
 
@@ -199,6 +236,18 @@ void AccountsMenu::setup() {
 		refresh();
 		_scroll.scrollToY(oldTop);
 	}, _outer.lifetime());
+
+	// VanGram: pull tags from other devices on startup (one-shot) and
+	// rebuild the sidebar if anything actually changed.
+	Ayu::TagsSync::Pull([=](QJsonObject) {
+		crl::on_main(&_outer, [=] {
+			// tags file changed on disk -> reload the in-memory map
+			// (the static map is only loaded once, so rebuild via clear)
+			reloadTagsFromDisk();
+			_buttons.clear();
+			refresh();
+		});
+	});
 }
 
 void AccountsMenu::updateGeometry() {

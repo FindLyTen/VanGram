@@ -119,6 +119,8 @@ set(ayugram_files
         ayu/ayu_infra.h
         ayu/ayu_updater.cpp
         ayu/ayu_updater.h
+        ayu/ayu_tag_sync.cpp
+        ayu/ayu_tag_sync.h
         ayu/features/mass_actions/mass_actions.cpp
         ayu/features/mass_actions/mass_actions.h
         ayu/features/archive_reader/archive_reader.cpp
