@@ -11,9 +11,6 @@
 #include "ayu/ayu_settings.h"
 #include "ayu/ayu_updater.h"
 #include "ayu/features/archive_reader/archive_reader.h"
-#include "ayu/features/contacts_manager/contacts_manager.h"
-#include "ayu/features/mass_actions/mass_actions.h"
-#include "ayu/features/passwords/passwords.h"
 #include "ayu/ui/ayu_logo.h"
 #include "ayu/ui/settings/settings_appearance.h"
 #include "ayu/ui/settings/settings_ayu.h"
@@ -40,6 +37,7 @@
 #include "ui/widgets/fields/input_field.h"
 #include "ui/widgets/labels.h"
 #include "ui/wrap/vertical_layout.h"
+#include "window/window_accounts_menu.h"
 #include "window/window_session_controller.h"
 #include "window/window_session_controller_link_info.h"
 
@@ -170,71 +168,15 @@ void BuildUpdateButton(SectionBuilder &builder) {
 }
 
 void BuildMassActionsButton(SectionBuilder &builder) {
+	// VanGram: Mass Actions moved to the accounts sidebar (top block).
+	// Kept as a thin redirect for discoverability.
 	builder.addSkip();
 	builder.addButton({
 		.id = u"vg/mass-actions"_q,
 		.title = rpl::single(QString("Mass Actions")),
 		.icon = { &st::menuIconShowAll },
 		.onClick = [c = builder.controller()] {
-			c->show(Box([=](not_null<Ui::GenericBox*> box) {
-				box->setTitle(rpl::single(QString("Mass Actions")));
-
-				const auto actions = std::make_shared<std::vector<QString>>();
-				*actions = {
-					QStringLiteral("Action: Join by invite link"),
-					QStringLiteral("Action: Subscribe by @username"),
-					QStringLiteral("Action: Leave"),
-				};
-				const auto aIdx = std::make_shared<int>(0);
-				const auto aBtn = box->addRow(
-					object_ptr<Ui::RoundButton>(
-						box,
-						rpl::single((*actions)[0]),
-						st::defaultLightButton),
-					st::boxRowPadding);
-				aBtn->setClickedCallback([=] {
-					*aIdx = (*aIdx + 1) % int(actions->size());
-					aBtn->setText(rpl::single((*actions)[*aIdx]));
-				});
-
-				const auto edit = box->addRow(
-					object_ptr<Ui::InputField>(
-						box,
-						st::defaultInputField,
-						Ui::InputField::Mode::MultiLine,
-						rpl::single(QString(
-							"one invite link / @username per line"))),
-					st::boxRowPadding);
-				edit->setMinimumHeight(160);
-
-				const auto log = box->addRow(
-					object_ptr<Ui::FlatLabel>(box, QString(), st::defaultFlatLabel),
-					st::boxRowPadding);
-				log->setText(QStringLiteral("idle"));
-
-				QObject::connect(
-					&Ayu::MassActions::Instance(),
-					&Ayu::MassActions::progress,
-					box,
-					[=](const QString &line) { log->setText(line); });
-
-				box->addButton(rpl::single(QString("Start")), [=] {
-					const auto targets = edit->getLastText().split(
-						'\n', Qt::SkipEmptyParts);
-					Ayu::MassActions::Instance().start(
-						static_cast<Ayu::MassActions::Action>(*aIdx),
-						targets,
-						60,
-						120,
-						&c->session());
-				});
-				box->addButton(rpl::single(QString("Stop")), [=] {
-					Ayu::MassActions::Instance().stop();
-				});
-				box->addButton(rpl::single(QString("Close")), [=] {
-					box->closeBox();
-				});
-			}));
+			Window::AccountsMenu::ShowMassActionsBox(c);
 		},
 	});
 	builder.addSkip();
@@ -320,35 +262,6 @@ void BuildCacheButton(SectionBuilder &builder) {
 			}
 		},
 	});
-}
-
-void BuildContactsManagerButton(SectionBuilder &builder) {
-	builder.addSkip();
-	builder.addButton({
-		.id = u"vg/contacts-manager"_q,
-		.title = rpl::single(QString("Contacts manager")),
-		.icon = { &st::menuIconProfile },
-		.onClick = [c = builder.controller()] {
-			Ayu::ContactsManager::ShowContactsManager(c);
-		},
-	});
-	builder.addButton({
-		.id = u"vg/passwords"_q,
-		.title = rpl::single(QString("2FA password manager")),
-		.icon = { &st::menuIcon2SV },
-		.onClick = [c = builder.controller()] {
-			Ayu::Passwords::ShowPasswordsBox(c);
-		},
-	});
-	builder.addButton({
-		.id = u"vg/enable-2fa"_q,
-		.title = rpl::single(QString("Enable 2FA (accounts without one)")),
-		.icon = { &st::menuIcon2SV },
-		.onClick = [c = builder.controller()] {
-			Ayu::Passwords::ShowEnable2FABox(c);
-		},
-	});
-	builder.addSkip();
 }
 
 void BuildAutoBackupButtons(SectionBuilder &builder) {
@@ -478,7 +391,6 @@ const auto kMeta = BuildHelper({
 	BuildMassActionsButton(builder);
 	BuildArchiveReaderButtons(builder);
 	BuildCacheButton(builder);
-	BuildContactsManagerButton(builder);
 	BuildCategories(builder);
 });
 

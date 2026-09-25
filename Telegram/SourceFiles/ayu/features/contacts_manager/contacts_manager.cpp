@@ -14,6 +14,7 @@
 #include "window/window_session_controller.h"
 #include "ui/layers/box_content.h"
 #include "ui/layers/generic_box.h"
+#include "ui/boxes/confirm_box.h"
 #include "ui/widgets/buttons.h"
 #include "ui/widgets/checkbox.h"
 #include "ui/widgets/labels.h"
@@ -194,9 +195,9 @@ void showListBox(
 			}
 			info->setText(QStringLiteral("Contacts: %1").arg(
 				rows->size()));
-			content->resizeToWidth(st::boxWidth);
 		};
 		rebuild();
+		box->setMaxHeight(520);
 
 		box->addButton(rpl::single(QString("Delete selected")), [=] {
 			auto victims = std::vector<not_null<UserData*>>();
@@ -206,14 +207,34 @@ void showListBox(
 					victims.push_back(row.item.user);
 				}
 			}
-			if (!victims.empty()) {
-				deleteContacts(session, std::move(victims));
+			if (victims.empty()) {
+				box->closeBox();
+				return;
 			}
-			box->closeBox();
+			controller->show(Ui::MakeConfirmBox({
+				.text = QStringLiteral(
+					"Delete %1 selected contact(s)?")
+					.arg(victims.size()),
+				.confirmed = [=](Fn<void()> &&close) {
+					deleteContacts(session, std::move(victims));
+					close();
+					box->closeBox();
+				},
+				.confirmText = QStringLiteral("Delete"),
+			}));
 		});
 		box->addButton(rpl::single(QString("Delete all except mine")), [=] {
-			deleteAllExceptMineAllAccounts();
-			box->closeBox();
+			controller->show(Ui::MakeConfirmBox({
+				.text = QStringLiteral(
+					"Delete ALL contacts except your own accounts, "
+					"on ALL accounts?"),
+				.confirmed = [=](Fn<void()> &&close) {
+					deleteAllExceptMineAllAccounts();
+					close();
+					box->closeBox();
+				},
+				.confirmText = QStringLiteral("Delete"),
+			}));
 		});
 		box->addButton(rpl::single(QString("Close")), [=] {
 			box->closeBox();

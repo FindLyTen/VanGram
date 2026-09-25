@@ -23,6 +23,7 @@ class Account;
 namespace Window {
 
 class Controller;
+class SessionController;
 
 // VanGram: persistent account-switcher sidebar.
 //
@@ -45,6 +46,11 @@ public:
 	// Whether the sidebar currently takes up horizontal space.
 	[[nodiscard]] bool shown() const { return _shown; }
 
+	// VanGram: mass actions box (shared by the sidebar tools block and
+	// the Ayu settings page).
+	static void ShowMassActionsBox(
+		not_null<SessionController*> controller);
+
 	void updateGeometry();
 
 private:
@@ -52,11 +58,11 @@ private:
 	void refresh();
 	void setShown(bool shown);
 	void editTagBox(quint64 key);
+	void ensureToolsButtons();
 	void ensureAddButton();
-	void ensurePasswordsButton();
 	void showAccountMenu(
-		not_null<Main::Account*> account,
-		Qt::KeyboardModifiers modifiers);
+			not_null<Main::Account*> account,
+			Qt::KeyboardModifiers modifiers);
 	void moveAccount(
 		not_null<Main::Account*> account,
 		int delta);
@@ -76,8 +82,11 @@ private:
 	Ui::VerticalLayout *_list = nullptr;
 
 	base::flat_map<Main::Account*, base::unique_qptr<Ui::SettingsButton>> _buttons;
-	base::unique_qptr<Ui::SettingsButton> _addButton;
+	Ui::VerticalLayout *_tools = nullptr;
+	base::unique_qptr<Ui::SettingsButton> _massActionsButton;
+	base::unique_qptr<Ui::SettingsButton> _contactsButton;
 	base::unique_qptr<Ui::SettingsButton> _passwordsButton;
+	base::unique_qptr<Ui::SettingsButton> _addButton;
 	std::unique_ptr<Ui::VerticalLayoutReorder> _reorder;
 	int _reordering = 0;
 	base::unique_qptr<Ui::PopupMenu> _popupMenu;

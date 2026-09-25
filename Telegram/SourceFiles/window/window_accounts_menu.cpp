@@ -8,6 +8,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "window/window_accounts_menu.h"
 
 #include "window/window_controller.h"
+#include "window/window_session_controller.h"
 #include "core/application.h"
 #include "main/main_domain.h"
 #include "main/main_account.h"
@@ -31,6 +32,8 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "settings/sections/settings_information.h"
 #include "ayu/ui/ayu_userpic.h"
+#include "ayu/features/contacts_manager/contacts_manager.h"
+#include "ayu/features/mass_actions/mass_actions.h"
 #include "ayu/features/passwords/passwords.h"
 #include "ayu/ayu_tag_sync.h"
 #include "core/core_settings.h"
@@ -153,6 +156,34 @@ void setTagValue(quint64 key, const QString &text, const QString &color) {
 			false,
 		};
 	}
+}
+
+// Paints a menu icon centered in the button's userpic slot (same look as
+// the "Add account" row).
+void SetupButtonIcon(
+		not_null<Ui::SettingsButton*> raw,
+		const style::icon &icon) {
+	struct IconState {
+		explicit IconState(QWidget *parent) : w(parent) {
+			w.setAttribute(Qt::WA_TransparentForMouseEvents);
+		}
+		Ui::RpWidget w;
+	};
+	const auto st = raw->lifetime().make_state<IconState>(raw);
+	st->w.show();
+	const auto iconSize = icon.width();
+	raw->heightValue(
+	) | rpl::on_next([=](int height) {
+		const auto left = st::mainMenuAddAccountButton.iconLeft
+			+ (st::settingsIconAdd.width() - iconSize) / 2;
+		const auto top = (height - iconSize) / 2;
+		st->w.setGeometry(left, top, iconSize, iconSize);
+	}, st->w.lifetime());
+	st->w.paintRequest(
+	) | rpl::on_next([=] {
+		auto p = QPainter(&st->w);
+		icon.paint(p, 0, 0, st->w.width());
+	}, st->w.lifetime());
 }
 
 } // namespace
@@ -306,8 +337,8 @@ void AccountsMenu::refresh() {
 	}
 	_buttons = std::move(now);
 
+	ensureToolsButtons();
 	ensureAddButton();
-	ensurePasswordsButton();
 
 	_container->resizeToWidth(_outer.width());
 
@@ -435,6 +466,10 @@ void AccountsMenu::showAccountMenu(
 
 base::unique_qptr<Ui::SettingsButton> AccountsMenu::prepareButton(
 		not_null<Main::Account*> account) {
+	// The tools block is created lazily on the first account button, so
+	// it always sits ABOVE the account list (container order = visual
+	// order, and _list is created right after the tools).
+	ensureToolsButtons();
 	if (!_list) {
 		_list = _container->add(object_ptr<Ui::VerticalLayout>(_container));
 	}
@@ -633,28 +668,7 @@ void AccountsMenu::ensureAddButton() {
 			rpl::single(QString("Add account")),
 			st::mainMenuAddAccountButton)));
 	const auto raw = button.get();
-
-	// Green "+" icon in the userpic slot (same look as the main menu).
-	struct IconState {
-		explicit IconState(QWidget *parent) : w(parent) {
-			w.setAttribute(Qt::WA_TransparentForMouseEvents);
-		}
-		Ui::RpWidget w;
-	};
-	const auto st = raw->lifetime().make_state<IconState>(raw);
-	st->w.show();
-	const auto iconSize = st::settingsIconAdd.width();
-	raw->heightValue(
-	) | rpl::on_next([=](int height) {
-		const auto left = st::mainMenuAddAccountButton.iconLeft;
-		const auto top = (height - iconSize) / 2;
-		st->w.setGeometry(left, top, iconSize, iconSize);
-	}, st->w.lifetime());
-	st->w.paintRequest(
-	) | rpl::on_next([=] {
-		auto p = QPainter(&st->w);
-		st::settingsIconAdd.paint(p, 0, 0, st->w.width());
-	}, st->w.lifetime());
+	SetupButtonIcon(raw, st::settingsIconAdd);
 
 	raw->clicks(
 	) | rpl::on_next([=](Qt::MouseButton which) {
@@ -666,52 +680,120 @@ void AccountsMenu::ensureAddButton() {
 	_addButton = std::move(button);
 }
 
-void AccountsMenu::ensurePasswordsButton() {
-	// VanGram: 2FA password manager entry at the bottom of the sidebar.
-	if (_passwordsButton) {
+void AccountsMenu::ensureToolsButtons() {
+	// VanGram: tools block at the TOP of the sidebar, above the account
+	// list: mass actions, contacts manager, 2FA passwords.
+	if (_tools) {
 		return;
 	}
-	auto button = base::unique_qptr<Ui::SettingsButton>(
-		_container->add(object_ptr<Ui::SettingsButton>(
-			_container,
-			rpl::single(QString("2FA Passwords")),
-			st::mainMenuAddAccountButton)));
-	const auto raw = button.get();
+	_tools = _container->add(object_ptr<Ui::VerticalLayout>(_container));
 
-	// Key icon in the userpic slot.
-	struct IconState {
-		explicit IconState(QWidget *parent) : w(parent) {
-			w.setAttribute(Qt::WA_TransparentForMouseEvents);
-		}
-		Ui::RpWidget w;
-	};
-	const auto st = raw->lifetime().make_state<IconState>(raw);
-	st->w.show();
-	const auto iconSize = st::settingsIconAdd.width();
-	raw->heightValue(
-	) | rpl::on_next([=](int height) {
-		const auto left = st::mainMenuAddAccountButton.iconLeft;
-		const auto top = (height - iconSize) / 2;
-		st->w.setGeometry(left, top, iconSize, iconSize);
-	}, st->w.lifetime());
-	st->w.paintRequest(
-	) | rpl::on_next([=] {
-		auto p = QPainter(&st->w);
-		st::menuIcon2SV.paint(p, 0, 0, st->w.width());
-	}, st->w.lifetime());
-
-	raw->clicks(
-	) | rpl::on_next([=](Qt::MouseButton which) {
-		if (which == Qt::LeftButton) {
+	const auto makeButton = [=](
+			const QString &text,
+			const style::icon &icon,
+			Fn<void(not_null<Window::SessionController*> c)> handler) {
+		auto button = base::unique_qptr<Ui::SettingsButton>(
+			_tools->add(object_ptr<Ui::SettingsButton>(
+				_tools,
+				rpl::single(text),
+				st::mainMenuAddAccountButton)));
+		const auto raw = button.get();
+		SetupButtonIcon(raw, icon);
+		raw->setAcceptBoth(true);
+		raw->clicks(
+		) | rpl::on_next([=](Qt::MouseButton which) {
+			if (which != Qt::LeftButton) {
+				return;
+			}
 			const auto window = Core::App().activePrimaryWindow();
 			if (window && window->sessionController()) {
-				Ayu::Passwords::ShowPasswordsBox(
-					window->sessionController());
+				handler(window->sessionController());
 			}
-		}
-	}, raw->lifetime());
+		}, raw->lifetime());
+		return button;
+	};
 
-	_passwordsButton = std::move(button);
+	_massActionsButton = makeButton(
+		QString("Mass Actions"),
+		st::menuIconTools,
+		[](not_null<Window::SessionController*> c) { ShowMassActionsBox(c); });
+	_contactsButton = makeButton(
+		QString("Contacts"),
+		st::menuIconProfile,
+		[](not_null<Window::SessionController*> c) {
+			Ayu::ContactsManager::ShowContactsManager(c);
+		});
+	_passwordsButton = makeButton(
+		QString("2FA Passwords"),
+		st::menuIcon2SV,
+		[](not_null<Window::SessionController*> c) {
+			Ayu::Passwords::ShowPasswordsBox(c);
+		});
+}
+
+void AccountsMenu::ShowMassActionsBox(
+		not_null<Window::SessionController*> controller) {
+	controller->show(Box([=](not_null<Ui::GenericBox*> box) {
+		box->setTitle(rpl::single(QString("Mass Actions")));
+		box->setMaxHeight(480);
+
+		const auto actions = std::make_shared<std::vector<QString>>();
+		*actions = {
+			QStringLiteral("Join by invite link"),
+			QStringLiteral("Subscribe by @username"),
+			QStringLiteral("Leave channels"),
+		};
+		const auto aIdx = std::make_shared<int>(0);
+		const auto aBtn = box->addRow(
+			object_ptr<Ui::RoundButton>(
+				box,
+				rpl::single((*actions)[0]),
+				st::defaultLightButton),
+			st::boxRowPadding);
+		aBtn->setClickedCallback([=] {
+			*aIdx = (*aIdx + 1) % int(actions->size());
+			aBtn->setText(rpl::single((*actions)[*aIdx]));
+		});
+
+		const auto edit = box->addRow(
+			object_ptr<Ui::InputField>(
+				box,
+				st::defaultInputField,
+				Ui::InputField::Mode::MultiLine,
+				rpl::single(QString(
+					"one invite link / @username per line"))),
+			st::boxRowPadding);
+		edit->setMinimumHeight(160);
+
+		const auto log = box->addRow(
+			object_ptr<Ui::FlatLabel>(box, QString(), st::defaultFlatLabel),
+			st::boxRowPadding);
+		log->setText(QStringLiteral("idle"));
+		log->setBreakEverywhere(true);
+
+		QObject::connect(
+			&Ayu::MassActions::Instance(),
+			&Ayu::MassActions::progress,
+			box,
+			[=](const QString &line) { log->setText(line); });
+
+		box->addButton(rpl::single(QString("Start")), [=] {
+			const auto targets = edit->getLastText().split(
+				'\n', Qt::SkipEmptyParts);
+			Ayu::MassActions::Instance().start(
+				static_cast<Ayu::MassActions::Action>(*aIdx),
+				targets,
+				60,
+				120,
+				&controller->session());
+		});
+		box->addButton(rpl::single(QString("Stop")), [=] {
+			Ayu::MassActions::Instance().stop();
+		});
+		box->addButton(rpl::single(QString("Close")), [=] {
+			box->closeBox();
+		});
+	}));
 }
 
 } // namespace Window

@@ -241,7 +241,12 @@ void ShowPasswordsBox(not_null<Window::SessionController*> controller) {
 				.arg(accounts.size()));
 		};
 		rebuild();
+		box->setMaxHeight(480);
 
+		box->addButton(rpl::single(QString("Enable missing")), [=] {
+			ShowEnable2FABox(controller);
+			box->closeBox();
+		});
 		box->addButton(rpl::single(QString("Close")), [=] {
 			box->closeBox();
 		});
@@ -280,6 +285,9 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 			GeneratePassword(20));
 		passLabel->setText(QStringLiteral("Password: %1").arg(*pass));
 
+		// Accumulating log: each result gets its own line instead of
+		// overwriting the previous one.
+		const auto logLines = std::make_shared<QStringList>();
 		const auto log = content->add(
 			object_ptr<Ui::FlatLabel>(
 				content,
@@ -287,6 +295,10 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 				st::defaultFlatLabel),
 			st::boxRowPadding);
 		log->setBreakEverywhere(true);
+		const auto appendLog = [=](const QString &line) {
+			logLines->push_back(line);
+			log->setText(logLines->join('\n'));
+		};
 
 		content->add(
 			object_ptr<Ui::RoundButton>(
@@ -300,15 +312,17 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 				QStringLiteral("Password: %1").arg(*pass));
 		});
 
+		box->setMaxHeight(480);
 		box->addButton(rpl::single(QString("Enable on all")), [=] {
-			log->setText(QStringLiteral("starting..."));
+			logLines->clear();
+			appendLog(QStringLiteral("starting..."));
 			const auto queue = std::make_shared<std::vector<AccountInfo>>(
 				without);
 			const auto progress = std::make_shared<int>(0);
 			const auto step = std::make_shared<Fn<void()>>();
 			*step = [=] {
 				if (queue->empty()) {
-					log->setText(QStringLiteral(
+					appendLog(QStringLiteral(
 						"Done: %1 accounts").arg(*progress));
 					return;
 				}
@@ -319,10 +333,10 @@ void ShowEnable2FABox(not_null<Window::SessionController*> controller) {
 						const QString &error) {
 					if (ok) {
 						++*progress;
-						log->setText(QStringLiteral("%1: OK")
+						appendLog(QStringLiteral("%1: OK")
 							.arg(acc.name));
 					} else {
-						log->setText(QStringLiteral("%1: FAILED (%2)")
+						appendLog(QStringLiteral("%1: FAILED (%2)")
 							.arg(acc.name, error));
 					}
 					(*step)();
