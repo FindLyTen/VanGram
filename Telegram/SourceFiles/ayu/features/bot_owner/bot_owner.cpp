@@ -71,7 +71,7 @@ void searchAccount(
 		MTP_flags(MTPmessages_Search::Flag::f_from_id),
 		bf->input(),
 		MTP_string(username),
-		session->user()->input,
+		session->user()->input(),
 		MTP_inputPeerEmpty(),
 		MTP_vector<MTPReaction>(),
 		MTP_int(0), // top_msg_id
@@ -90,15 +90,8 @@ void searchAccount(
 			.phone = session->user()->phone(),
 			.hasBotFather = true,
 		};
-		const auto messages = result.match(
-			[](const MTPDmessages_messages &d) { return &d.vmessages().v; },
-			[](const MTPDmessages_messagesSlice &d) { return &d.vmessages().v; },
-			[](const MTPDmessages_channelMessages &d) { return &d.vmessages().v; },
-			[](const MTPDmessages_messagesNotModified &) {
-				return static_cast<const QVector<MTPMessage>*>(nullptr);
-			});
-		if (messages) {
-			for (const auto &message : *messages) {
+		const auto countMessages = [&](const auto &list) {
+			for (const auto &message : list) {
 				message.match([&](const MTPDmessage &data) {
 					const auto text = qs(data.vmessage());
 					if (text.contains(username, Qt::CaseInsensitive)) {
@@ -110,7 +103,18 @@ void searchAccount(
 					}
 				}, [](const MTPDmessageService &) {});
 			}
-		}
+		};
+		result.match(
+			[&](const MTPDmessages_messages &data) {
+				countMessages(data.vmessages().v);
+			},
+			[&](const MTPDmessages_messagesSlice &data) {
+				countMessages(data.vmessages().v);
+			},
+			[&](const MTPDmessages_channelMessages &data) {
+				countMessages(data.vmessages().v);
+			},
+			[](const MTPDmessages_messagesNotModified &) {});
 		done(r);
 	}).fail([=] {
 		done(AccountResult{
@@ -147,10 +151,18 @@ void checkBotDialog(
 			MTP_long(0)
 		)).done([=](const MTPmessages_Messages &result) {
 			const auto count = result.match(
-				[](const MTPDmessages_messages &d) { return d.vmessages().v.size(); },
-				[](const MTPDmessages_messagesSlice &d) { return d.vmessages().v.size(); },
-				[](const MTPDmessages_channelMessages &d) { return d.vmessages().v.size(); },
-				[](const MTPDmessages_messagesNotModified &) { return int(0); });
+				[](const MTPDmessages_messages &d) {
+					return int(d.vmessages().v.size());
+				},
+				[](const MTPDmessages_messagesSlice &d) {
+					return int(d.vmessages().v.size());
+				},
+				[](const MTPDmessages_channelMessages &d) {
+					return int(d.vmessages().v.size());
+				},
+				[](const MTPDmessages_messagesNotModified &) {
+					return int(0);
+				});
 			done(count > 0);
 		}).fail([=] {
 			done(false);
