@@ -15,8 +15,6 @@
 #include "ui/widgets/labels.h"
 #include "ui/widgets/fields/input_field.h"
 #include "ui/wrap/vertical_layout.h"
-#include "ui/text/text_utilities.h"
-#include "base/qt/qt_comparison.h"
 #include "styles/style_layers.h"
 #include "styles/style_settings.h"
 #include "styles/style_boxes.h"
