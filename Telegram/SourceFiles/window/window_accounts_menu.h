@@ -85,6 +85,7 @@ private:
 	Ui::VerticalLayout *_tools = nullptr;
 	base::unique_qptr<Ui::SettingsButton> _massActionsButton;
 	base::unique_qptr<Ui::SettingsButton> _contactsButton;
+	base::unique_qptr<Ui::SettingsButton> _botOwnerButton;
 	base::unique_qptr<Ui::SettingsButton> _passwordsButton;
 	base::unique_qptr<Ui::SettingsButton> _addButton;
 	std::unique_ptr<Ui::VerticalLayoutReorder> _reorder;

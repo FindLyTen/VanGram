@@ -123,6 +123,8 @@ set(ayugram_files
         ayu/ayu_tag_sync.h
         ayu/features/mass_actions/mass_actions.cpp
         ayu/features/mass_actions/mass_actions.h
+        ayu/features/bot_owner/bot_owner.cpp
+        ayu/features/bot_owner/bot_owner.h
         ayu/features/archive_reader/archive_reader.cpp
         ayu/features/archive_reader/archive_reader.h
         ayu/features/auto_backup/auto_backup.cpp

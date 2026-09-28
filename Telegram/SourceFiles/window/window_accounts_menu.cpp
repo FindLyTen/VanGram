@@ -32,6 +32,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include "ui/ui_utility.h"
 #include "settings/sections/settings_information.h"
 #include "ayu/ui/ayu_userpic.h"
+#include "ayu/features/bot_owner/bot_owner.h"
 #include "ayu/features/contacts_manager/contacts_manager.h"
 #include "ayu/features/mass_actions/mass_actions.h"
 #include "ayu/features/passwords/passwords.h"
@@ -722,6 +723,12 @@ void AccountsMenu::ensureToolsButtons() {
 		st::menuIconProfile,
 		[](not_null<Window::SessionController*> c) {
 			Ayu::ContactsManager::ShowContactsManager(c);
+		});
+	_botOwnerButton = makeButton(
+		QString("Find bot owner"),
+		st::menuIconBot,
+		[](not_null<Window::SessionController*> c) {
+			Ayu::BotOwner::ShowBotOwnerBox(c);
 		});
 	_passwordsButton = makeButton(
 		QString("2FA Passwords"),
