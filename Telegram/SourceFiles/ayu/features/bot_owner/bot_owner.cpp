@@ -79,7 +79,7 @@ void searchAccount(
 		MTP_int(0), // min_date
 		MTP_int(0), // max_date
 		MTP_int(0), // offset_id
-		MTP_inputPeerEmpty(), // add_offset
+		MTP_int(0), // add_offset
 		MTP_int(kHistoryLimit), // limit
 		MTP_int(0), // max_id
 		MTP_int(0), // min_id
@@ -101,7 +101,8 @@ void searchAccount(
 								: QStringLiteral("BotFather: "))
 							+ text.left(120));
 					}
-				}, [](const MTPDmessageService &) {});
+				}, [](const MTPDmessageService &) {
+				}, [](const MTPDmessageEmpty &) {});
 			}
 		};
 		result.match(
@@ -144,7 +145,7 @@ void checkBotDialog(
 			MTP_int(0),
 			MTP_int(0),
 			MTP_int(0),
-			MTP_inputPeerEmpty(),
+			MTP_int(0), // add_offset
 			MTP_int(1),
 			MTP_int(0),
 			MTP_int(0),
