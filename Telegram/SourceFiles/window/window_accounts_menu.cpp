@@ -46,6 +46,7 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
 #include <QtCore/QDateTime>
 #include <QtCore/QDir>
 #include <QtCore/QFile>
+#include <QtCore/QPointer>
 #include <QtCore/QCoreApplication>
 #include <QtCore/QJsonDocument>
 #include <QtCore/QJsonObject>
@@ -271,8 +272,12 @@ void AccountsMenu::setup() {
 
 	// VanGram: pull tags from other devices on startup (one-shot) and
 	// rebuild the sidebar if anything actually changed.
+	const auto weak = QPointer<Ui::RpWidget>(&_outer);
 	Ayu::TagsSync::Pull([=](QJsonObject) {
-		crl::on_main(&_outer, [=] {
+		if (!weak) {
+			return; // sidebar destroyed (app quit) — don't touch it
+		}
+		crl::on_main(weak.data(), [=] {
 			// tags file changed on disk -> reload the in-memory map
 			// (the static map is only loaded once, so rebuild via clear)
 			reloadTagsFromDisk();

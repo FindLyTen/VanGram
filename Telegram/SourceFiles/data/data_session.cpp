@@ -452,10 +452,13 @@ void Session::clear() {
 	HistoryView::Element::ClearGlobal();
 	_contactsNoChatsList.clear();
 	_contactsList.clear();
-	_chatsList.clear();
+	// VanGram: clear folder chat lists BEFORE the main one (upstream
+	// fb5646090c) — folders hold rows owned by the main list; clearing
+	// the main list first leaves dangling rows and crashes on quit.
 	for (const auto &[id, folder] : _folders) {
 		folder->clearChatsList();
 	}
+	_chatsList.clear();
 	_chatsFilters->clear();
 	_histories->clearAll();
 	_webpages.clear();
